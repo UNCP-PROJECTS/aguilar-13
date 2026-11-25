@@ -1,0 +1,1895 @@
+openapi: 3.0.3
+info:
+  title: UNCP FIS • TechGrid RESTful API Gateway
+  version: 1.0.0
+  description: API RESTful production-ready construida con Django REST Framework (DRF)
+    para la gestión de Activos TI, Microservicios, Departamentos e Incidentes Operativos.
+    Implementa navegación HATEOAS, serialización hipervinculada, filtrado lazy en
+    BD, paginación estándar, throttling multicapa, CORS restringido, protección CSRF
+    y telemetría de preparación para arquitectura de microservicios (Semana 14).
+  contact:
+    name: José Pablo Osorio Mallqui (UNCP FIS - 2022200839H)
+    email: 2022200839h@uncp.edu.pe
+paths:
+  /api/v1/departamentos/:
+    get:
+      operationId: departamentos_list
+      description: ViewSet CRUD para Departamentos TI heredando permisos, paginación
+        y filtros globales.
+      summary: Listar departamentos TI
+      parameters:
+      - in: query
+        name: activo
+        schema:
+          type: boolean
+      - in: query
+        name: codigo
+        schema:
+          type: string
+      - name: ordering
+        required: false
+        in: query
+        description: Qué campo usar para ordenar los resultados.
+        schema:
+          type: string
+      - name: page
+        required: false
+        in: query
+        description: Un número de página dentro del conjunto de resultados paginado.
+        schema:
+          type: integer
+      - name: page_size
+        required: false
+        in: query
+        description: Número de resultados a devolver por página.
+        schema:
+          type: integer
+      - name: search
+        required: false
+        in: query
+        description: Un término de búsqueda.
+        schema:
+          type: string
+      tags:
+      - Departamentos
+      security:
+      - cookieAuth: []
+      - tokenAuth: []
+      - {}
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PaginatedDepartamentoList'
+          description: ''
+    post:
+      operationId: departamentos_create
+      description: ViewSet CRUD para Departamentos TI heredando permisos, paginación
+        y filtros globales.
+      summary: Registrar nuevo departamento TI
+      tags:
+      - Departamentos
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/DepartamentoRequest'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/DepartamentoRequest'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/DepartamentoRequest'
+        required: true
+      security:
+      - cookieAuth: []
+      - tokenAuth: []
+      responses:
+        '201':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Departamento'
+          description: ''
+  /api/v1/departamentos/{id}/:
+    get:
+      operationId: departamentos_retrieve
+      description: ViewSet CRUD para Departamentos TI heredando permisos, paginación
+        y filtros globales.
+      summary: Obtener detalle de departamento TI
+      parameters:
+      - in: path
+        name: id
+        schema:
+          type: integer
+        description: Un valor de entero único que identifique este Departamento TI.
+        required: true
+      tags:
+      - Departamentos
+      security:
+      - cookieAuth: []
+      - tokenAuth: []
+      - {}
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Departamento'
+          description: ''
+    delete:
+      operationId: departamentos_destroy
+      description: ViewSet CRUD para Departamentos TI heredando permisos, paginación
+        y filtros globales.
+      summary: Eliminar departamento TI
+      parameters:
+      - in: path
+        name: id
+        schema:
+          type: integer
+        description: Un valor de entero único que identifique este Departamento TI.
+        required: true
+      tags:
+      - Departamentos
+      security:
+      - cookieAuth: []
+      - tokenAuth: []
+      responses:
+        '204':
+          description: No response body
+    put:
+      operationId: departamentos_update
+      description: ViewSet CRUD para Departamentos TI heredando permisos, paginación
+        y filtros globales.
+      summary: Actualizar departamento TI
+      parameters:
+      - in: path
+        name: id
+        schema:
+          type: integer
+        description: Un valor de entero único que identifique este Departamento TI.
+        required: true
+      tags:
+      - Departamentos
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/DepartamentoRequest'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/DepartamentoRequest'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/DepartamentoRequest'
+        required: true
+      security:
+      - cookieAuth: []
+      - tokenAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Departamento'
+          description: ''
+    patch:
+      operationId: departamentos_partial_update
+      description: ViewSet CRUD para Departamentos TI heredando permisos, paginación
+        y filtros globales.
+      summary: Actualización parcial de departamento TI
+      parameters:
+      - in: path
+        name: id
+        schema:
+          type: integer
+        description: Un valor de entero único que identifique este Departamento TI.
+        required: true
+      tags:
+      - Departamentos
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/PatchedDepartamentoRequest'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/PatchedDepartamentoRequest'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/PatchedDepartamentoRequest'
+      security:
+      - cookieAuth: []
+      - tokenAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Departamento'
+          description: ''
+  /api/v1/activos/:
+    get:
+      operationId: activos_list
+      description: |-
+        ModelViewSet principal de Activos TI y Microservicios.
+        Hereda permission_classes, filter_backends y pagination_class desde settings.REST_FRAMEWORK.
+      summary: Listar activos y microservicios TI (Paginado, Filtrado y HATEOAS)
+      parameters:
+      - in: query
+        name: created_after
+        schema:
+          type: string
+          format: date-time
+      - in: query
+        name: criticidad
+        schema:
+          type: string
+        description: Filtrar por criticidad (BAJA, MEDIA, ALTA, CRITICA)
+      - in: query
+        name: departamento
+        schema:
+          type: number
+      - in: query
+        name: departamento_codigo
+        schema:
+          type: string
+      - in: query
+        name: ordering
+        schema:
+          type: string
+        description: Ordenar por campo (ej. -created, sla_horas)
+      - name: page
+        required: false
+        in: query
+        description: Un número de página dentro del conjunto de resultados paginado.
+        schema:
+          type: integer
+      - name: page_size
+        required: false
+        in: query
+        description: Número de resultados a devolver por página.
+        schema:
+          type: integer
+      - name: search
+        required: false
+        in: query
+        description: Un término de búsqueda.
+        schema:
+          type: string
+      - in: query
+        name: sla_horas_max
+        schema:
+          type: integer
+      - in: query
+        name: sla_horas_min
+        schema:
+          type: integer
+      - in: query
+        name: status
+        schema:
+          type: string
+        description: Filtrar por estado (activo, mantenimiento, degradado, inactivo)
+      - in: query
+        name: tipo
+        schema:
+          type: string
+      tags:
+      - Activos TI
+      security:
+      - cookieAuth: []
+      - tokenAuth: []
+      - {}
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PaginatedActivoTIHyperlinkedList'
+          description: ''
+    post:
+      operationId: activos_create
+      description: |-
+        ModelViewSet principal de Activos TI y Microservicios.
+        Hereda permission_classes, filter_backends y pagination_class desde settings.REST_FRAMEWORK.
+      summary: Registrar nuevo Activo TI
+      tags:
+      - Activos TI
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ActivoTIHyperlinkedRequest'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/ActivoTIHyperlinkedRequest'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/ActivoTIHyperlinkedRequest'
+        required: true
+      security:
+      - cookieAuth: []
+      - tokenAuth: []
+      responses:
+        '201':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ActivoTIHyperlinked'
+          description: ''
+  /api/v1/activos/resumen-metricas/:
+    get:
+      operationId: activos_resumen_metricas_retrieve
+      description: Agregación SQL pura (COUNT/AVG) vía ORM sin cargar listas en memoria.
+      summary: Resumen de métricas agregadas calculadas en base de datos
+      tags:
+      - Activos TI
+      security:
+      - cookieAuth: []
+      - tokenAuth: []
+      - {}
+      responses:
+        '200':
+          description: Métricas agregadas SQL sin filtrado en memoria
+  /api/v1/activos/throttle-probe/:
+    get:
+      operationId: activos_throttle_probe_retrieve
+      description: Endpoint @action(detail=False) con BurstProbeThrottle estricto
+        (5/min) para demostrar 429.
+      summary: Endpoint de diagnóstico de Throttling (Límite 5 peticiones/min)
+      tags:
+      - Activos TI
+      security:
+      - cookieAuth: []
+      - tokenAuth: []
+      - {}
+      responses:
+        '200':
+          description: Solicitud dentro de cuota permitida
+        '429':
+          description: Too Many Requests - Límite de tasa excedido
+  /api/v1/activos/{id}/:
+    get:
+      operationId: activos_retrieve
+      description: |-
+        ModelViewSet principal de Activos TI y Microservicios.
+        Hereda permission_classes, filter_backends y pagination_class desde settings.REST_FRAMEWORK.
+      summary: Obtener recurso Activo TI con enlaces HATEOAS
+      parameters:
+      - in: path
+        name: id
+        schema:
+          type: integer
+        description: Un valor de entero único que identifique este Activo TI.
+        required: true
+      tags:
+      - Activos TI
+      security:
+      - cookieAuth: []
+      - tokenAuth: []
+      - {}
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ActivoTIHyperlinked'
+          description: ''
+    delete:
+      operationId: activos_destroy
+      description: |-
+        ModelViewSet principal de Activos TI y Microservicios.
+        Hereda permission_classes, filter_backends y pagination_class desde settings.REST_FRAMEWORK.
+      summary: Eliminar Activo TI
+      parameters:
+      - in: path
+        name: id
+        schema:
+          type: integer
+        description: Un valor de entero único que identifique este Activo TI.
+        required: true
+      tags:
+      - Activos TI
+      security:
+      - cookieAuth: []
+      - tokenAuth: []
+      responses:
+        '204':
+          description: No response body
+    put:
+      operationId: activos_update
+      description: |-
+        ModelViewSet principal de Activos TI y Microservicios.
+        Hereda permission_classes, filter_backends y pagination_class desde settings.REST_FRAMEWORK.
+      summary: Reemplazar Activo TI
+      parameters:
+      - in: path
+        name: id
+        schema:
+          type: integer
+        description: Un valor de entero único que identifique este Activo TI.
+        required: true
+      tags:
+      - Activos TI
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ActivoTIHyperlinkedRequest'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/ActivoTIHyperlinkedRequest'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/ActivoTIHyperlinkedRequest'
+        required: true
+      security:
+      - cookieAuth: []
+      - tokenAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ActivoTIHyperlinked'
+          description: ''
+    patch:
+      operationId: activos_partial_update
+      description: |-
+        ModelViewSet principal de Activos TI y Microservicios.
+        Hereda permission_classes, filter_backends y pagination_class desde settings.REST_FRAMEWORK.
+      summary: Actualizar parcialmente Activo TI
+      parameters:
+      - in: path
+        name: id
+        schema:
+          type: integer
+        description: Un valor de entero único que identifique este Activo TI.
+        required: true
+      tags:
+      - Activos TI
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/PatchedActivoTIHyperlinkedRequest'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/PatchedActivoTIHyperlinkedRequest'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/PatchedActivoTIHyperlinkedRequest'
+      security:
+      - cookieAuth: []
+      - tokenAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ActivoTIHyperlinked'
+          description: ''
+  /api/v1/activos/{id}/cambiar-estado/:
+    post:
+      operationId: activos_cambiar_estado_create
+      description: Endpoint @action(detail=True) para transición controlada de estado
+        operativo.
+      summary: Cambiar estado operativo de un Activo TI
+      parameters:
+      - in: path
+        name: id
+        schema:
+          type: integer
+        description: Un valor de entero único que identifique este Activo TI.
+        required: true
+      tags:
+      - Activos TI
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CambioEstadoActivoRequest'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/CambioEstadoActivoRequest'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/CambioEstadoActivoRequest'
+        required: true
+      security:
+      - cookieAuth: []
+      - tokenAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ActivoTIHyperlinked'
+          description: ''
+  /api/v1/activos/{id}/incidencias/:
+    get:
+      operationId: activos_incidencias_list
+      description: Endpoint @action(detail=True) que expone la colección hija sin
+        consultas en memoria.
+      summary: Listar incidencias asociadas a un Activo TI (Navegación HATEOAS)
+      parameters:
+      - in: query
+        name: created_after
+        schema:
+          type: string
+          format: date-time
+      - in: query
+        name: criticidad
+        schema:
+          type: string
+      - in: query
+        name: departamento
+        schema:
+          type: number
+      - in: query
+        name: departamento_codigo
+        schema:
+          type: string
+      - in: path
+        name: id
+        schema:
+          type: integer
+        description: Un valor de entero único que identifique este Activo TI.
+        required: true
+      - name: ordering
+        required: false
+        in: query
+        description: Qué campo usar para ordenar los resultados.
+        schema:
+          type: string
+      - name: page
+        required: false
+        in: query
+        description: Un número de página dentro del conjunto de resultados paginado.
+        schema:
+          type: integer
+      - name: page_size
+        required: false
+        in: query
+        description: Número de resultados a devolver por página.
+        schema:
+          type: integer
+      - name: search
+        required: false
+        in: query
+        description: Un término de búsqueda.
+        schema:
+          type: string
+      - in: query
+        name: sla_horas_max
+        schema:
+          type: integer
+      - in: query
+        name: sla_horas_min
+        schema:
+          type: integer
+      - in: query
+        name: status
+        schema:
+          type: string
+      - in: query
+        name: tipo
+        schema:
+          type: string
+      tags:
+      - Activos TI
+      security:
+      - cookieAuth: []
+      - tokenAuth: []
+      - {}
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PaginatedIncidenciaAPIList'
+          description: ''
+  /api/v1/incidencias/:
+    get:
+      operationId: incidencias_list
+      description: ViewSet CRUD para tickets de incidencia vinculados a ActivoTI.
+      summary: Listar incidencias operativas
+      parameters:
+      - in: query
+        name: activo
+        schema:
+          type: number
+      - in: query
+        name: horas_max
+        schema:
+          type: integer
+      - name: ordering
+        required: false
+        in: query
+        description: Qué campo usar para ordenar los resultados.
+        schema:
+          type: string
+      - name: page
+        required: false
+        in: query
+        description: Un número de página dentro del conjunto de resultados paginado.
+        schema:
+          type: integer
+      - name: page_size
+        required: false
+        in: query
+        description: Número de resultados a devolver por página.
+        schema:
+          type: integer
+      - in: query
+        name: prioridad
+        schema:
+          type: string
+      - name: search
+        required: false
+        in: query
+        description: Un término de búsqueda.
+        schema:
+          type: string
+      - in: query
+        name: status
+        schema:
+          type: string
+      tags:
+      - Incidencias
+      security:
+      - cookieAuth: []
+      - tokenAuth: []
+      - {}
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PaginatedIncidenciaAPIList'
+          description: ''
+    post:
+      operationId: incidencias_create
+      description: ViewSet CRUD para tickets de incidencia vinculados a ActivoTI.
+      summary: Registrar nueva incidencia operativa
+      tags:
+      - Incidencias
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/IncidenciaAPIRequest'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/IncidenciaAPIRequest'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/IncidenciaAPIRequest'
+        required: true
+      security:
+      - cookieAuth: []
+      - tokenAuth: []
+      responses:
+        '201':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/IncidenciaAPI'
+          description: ''
+  /api/v1/incidencias/{id}/:
+    get:
+      operationId: incidencias_retrieve
+      description: ViewSet CRUD para tickets de incidencia vinculados a ActivoTI.
+      summary: Obtener detalle de incidencia con HATEOAS
+      parameters:
+      - in: path
+        name: id
+        schema:
+          type: integer
+        description: Un valor de entero único que identifique este Incidencia API.
+        required: true
+      tags:
+      - Incidencias
+      security:
+      - cookieAuth: []
+      - tokenAuth: []
+      - {}
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/IncidenciaAPI'
+          description: ''
+    delete:
+      operationId: incidencias_destroy
+      description: ViewSet CRUD para tickets de incidencia vinculados a ActivoTI.
+      summary: Eliminar incidencia
+      parameters:
+      - in: path
+        name: id
+        schema:
+          type: integer
+        description: Un valor de entero único que identifique este Incidencia API.
+        required: true
+      tags:
+      - Incidencias
+      security:
+      - cookieAuth: []
+      - tokenAuth: []
+      responses:
+        '204':
+          description: No response body
+    put:
+      operationId: incidencias_update
+      description: ViewSet CRUD para tickets de incidencia vinculados a ActivoTI.
+      summary: Actualizar incidencia
+      parameters:
+      - in: path
+        name: id
+        schema:
+          type: integer
+        description: Un valor de entero único que identifique este Incidencia API.
+        required: true
+      tags:
+      - Incidencias
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/IncidenciaAPIRequest'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/IncidenciaAPIRequest'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/IncidenciaAPIRequest'
+        required: true
+      security:
+      - cookieAuth: []
+      - tokenAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/IncidenciaAPI'
+          description: ''
+    patch:
+      operationId: incidencias_partial_update
+      description: ViewSet CRUD para tickets de incidencia vinculados a ActivoTI.
+      summary: Actualización parcial de incidencia
+      parameters:
+      - in: path
+        name: id
+        schema:
+          type: integer
+        description: Un valor de entero único que identifique este Incidencia API.
+        required: true
+      tags:
+      - Incidencias
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/PatchedIncidenciaAPIRequest'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/PatchedIncidenciaAPIRequest'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/PatchedIncidenciaAPIRequest'
+      security:
+      - cookieAuth: []
+      - tokenAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/IncidenciaAPI'
+          description: ''
+  /api/v1/incidencias/{id}/resolver/:
+    post:
+      operationId: incidencias_resolver_create
+      description: Transiciona el ticket al estado resuelto mediante @action(detail=True).
+      summary: Marcar incidencia como resuelta
+      parameters:
+      - in: path
+        name: id
+        schema:
+          type: integer
+        description: Un valor de entero único que identifique este Incidencia API.
+        required: true
+      tags:
+      - Incidencias
+      security:
+      - cookieAuth: []
+      - tokenAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/IncidenciaAPI'
+          description: ''
+  /api/v1/bitacora/:
+    get:
+      operationId: bitacora_list
+      description: ReadOnlyModelViewSet protegido con paginación LimitOffsetPagination.
+      summary: Consultar bitácora de auditoría HTTP (Requiere Auth)
+      parameters:
+      - in: query
+        name: codigo_estado
+        schema:
+          type: integer
+      - name: limit
+        required: false
+        in: query
+        description: Número de resultados a devolver por página.
+        schema:
+          type: integer
+      - in: query
+        name: metodo
+        schema:
+          type: string
+      - name: offset
+        required: false
+        in: query
+        description: El índice inicial a partir del cual devolver los resultados.
+        schema:
+          type: integer
+      - name: ordering
+        required: false
+        in: query
+        description: Qué campo usar para ordenar los resultados.
+        schema:
+          type: string
+      - name: search
+        required: false
+        in: query
+        description: Un término de búsqueda.
+        schema:
+          type: string
+      tags:
+      - Bitácora
+      security:
+      - cookieAuth: []
+      - tokenAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PaginatedBitacoraAccesoList'
+          description: ''
+  /api/v1/bitacora/{id}/:
+    get:
+      operationId: bitacora_retrieve
+      description: ReadOnlyModelViewSet protegido con paginación LimitOffsetPagination.
+      summary: Obtener evento individual de bitácora
+      parameters:
+      - in: path
+        name: id
+        schema:
+          type: integer
+        description: Un valor de entero único que identifique este Bitácora de Acceso
+          API.
+        required: true
+      tags:
+      - Bitácora
+      security:
+      - cookieAuth: []
+      - tokenAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/BitacoraAcceso'
+          description: ''
+  /api/v1/auth/csrf/:
+    get:
+      operationId: auth_csrf_retrieve
+      description: |-
+        ViewSet dedicado para gestión de CSRF en SPA/AJAX, autenticación de sesión
+        y emisión de tokens DRF stateless sin exponer campos sensibles.
+      summary: Obtener cookie y token CSRF para clientes SPA/AJAX
+      tags:
+      - Autenticación & CSRF
+      security:
+      - cookieAuth: []
+      - tokenAuth: []
+      - {}
+      responses:
+        '200':
+          description: Cookie csrftoken emitida y token retornado en JSON
+  /api/v1/auth/login/:
+    post:
+      operationId: auth_login_create
+      description: |-
+        ViewSet dedicado para gestión de CSRF en SPA/AJAX, autenticación de sesión
+        y emisión de tokens DRF stateless sin exponer campos sensibles.
+      summary: Autenticación de sesión SPA (valida X-CSRFToken) y retorno de Token
+        DRF
+      tags:
+      - Autenticación & CSRF
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/LoginAPIRequest'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/LoginAPIRequest'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/LoginAPIRequest'
+        required: true
+      security:
+      - cookieAuth: []
+      - tokenAuth: []
+      - {}
+      responses:
+        '200':
+          description: Sesión iniciada y token emitido
+  /api/v1/auth/logout/:
+    post:
+      operationId: auth_logout_create
+      description: |-
+        ViewSet dedicado para gestión de CSRF en SPA/AJAX, autenticación de sesión
+        y emisión de tokens DRF stateless sin exponer campos sensibles.
+      summary: Cerrar sesión SPA activa
+      tags:
+      - Autenticación & CSRF
+      security:
+      - cookieAuth: []
+      - tokenAuth: []
+      responses:
+        '200':
+          description: Sesión finalizada
+  /api/v1/auth/me/:
+    get:
+      operationId: auth_me_retrieve
+      description: |-
+        ViewSet dedicado para gestión de CSRF en SPA/AJAX, autenticación de sesión
+        y emisión de tokens DRF stateless sin exponer campos sensibles.
+      summary: Consultar perfil seguro del usuario autenticado
+      tags:
+      - Autenticación & CSRF
+      security:
+      - cookieAuth: []
+      - tokenAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/UsuarioSeguro'
+          description: ''
+  /api/v1/auth/token/:
+    post:
+      operationId: auth_token_create
+      description: |-
+        ViewSet dedicado para gestión de CSRF en SPA/AJAX, autenticación de sesión
+        y emisión de tokens DRF stateless sin exponer campos sensibles.
+      summary: Emisión de Token DRF stateless para clientes API/Postman/cURL
+      tags:
+      - Autenticación & CSRF
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/LoginAPIRequest'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/LoginAPIRequest'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/LoginAPIRequest'
+        required: true
+      security:
+      - {}
+      responses:
+        '200':
+          description: Token DRF retornado sin requerir cookies de sesión
+  /api/v1/health/:
+    get:
+      operationId: health_list
+      description: Sonda de salud del servicio RESTful orientada a contenedores y
+        microservicios (Semana 14).
+      summary: Health check de disponibilidad y latencia de base de datos
+      tags:
+      - Infraestructura
+      security:
+      - cookieAuth: []
+      - tokenAuth: []
+      - {}
+      responses:
+        '200':
+          description: Servicio operativo y listo para balanceador/Docker
+components:
+  schemas:
+    ActivoResumen:
+      type: object
+      description: Resumen anidado de Activo TI dentro de IncidenciaAPISerializer.
+      properties:
+        id:
+          type: integer
+          readOnly: true
+        codigo_activo:
+          type: string
+          readOnly: true
+          title: Código de Activo
+        nombre:
+          type: string
+          title: Nombre del Activo / Servicio
+          maxLength: 140
+        tipo:
+          allOf:
+          - $ref: '#/components/schemas/TipoEnum'
+          title: Tipo de Recurso
+        status:
+          allOf:
+          - $ref: '#/components/schemas/ActivoStatusEnum'
+          title: Estado Operativo
+        criticidad:
+          allOf:
+          - $ref: '#/components/schemas/NivelSeveridadEnum'
+          title: Nivel de Criticidad
+      required:
+      - codigo_activo
+      - id
+      - nombre
+    ActivoResumenRequest:
+      type: object
+      description: Resumen anidado de Activo TI dentro de IncidenciaAPISerializer.
+      properties:
+        nombre:
+          type: string
+          minLength: 1
+          title: Nombre del Activo / Servicio
+          maxLength: 140
+        tipo:
+          allOf:
+          - $ref: '#/components/schemas/TipoEnum'
+          title: Tipo de Recurso
+        status:
+          allOf:
+          - $ref: '#/components/schemas/ActivoStatusEnum'
+          title: Estado Operativo
+        criticidad:
+          allOf:
+          - $ref: '#/components/schemas/NivelSeveridadEnum'
+          title: Nivel de Criticidad
+      required:
+      - nombre
+    ActivoStatusEnum:
+      enum:
+      - activo
+      - mantenimiento
+      - degradado
+      - inactivo
+      type: string
+      description: |-
+        * `activo` - Activo
+        * `mantenimiento` - En Mantenimiento
+        * `degradado` - Degradado
+        * `inactivo` - Inactivo
+    ActivoTIHyperlinked:
+      type: object
+      description: |-
+        Serializador avanzado con HyperlinkedModelSerializer, campos read-only,
+        anidamiento controlado, validación cruzada e hipervínculos HATEOAS.
+      properties:
+        id:
+          type: integer
+          readOnly: true
+        url:
+          type: string
+          format: uri
+          readOnly: true
+        codigo_activo:
+          type: string
+          readOnly: true
+          title: Código de Activo
+        nombre:
+          type: string
+          title: Nombre del Activo / Servicio
+          maxLength: 140
+        tipo:
+          allOf:
+          - $ref: '#/components/schemas/TipoEnum'
+          title: Tipo de Recurso
+        status:
+          allOf:
+          - $ref: '#/components/schemas/ActivoStatusEnum'
+          title: Estado Operativo
+        criticidad:
+          allOf:
+          - $ref: '#/components/schemas/NivelSeveridadEnum'
+          title: Nivel de Criticidad
+        departamento:
+          type: integer
+        departamento_url:
+          type: string
+          format: uri
+          readOnly: true
+        departamento_nombre:
+          type: string
+          title: Nombre del Departamento
+          readOnly: true
+        departamento_detalle:
+          allOf:
+          - $ref: '#/components/schemas/DepartamentoResumen'
+          readOnly: true
+        sla_horas:
+          type: integer
+          maximum: 9223372036854775807
+          minimum: 0
+          format: int64
+          title: SLA Comprometido (Horas)
+        costo_mensual:
+          type: string
+          format: decimal
+          pattern: ^-?\d{0,8}(?:\.\d{0,2})?$
+          title: Costo Operativo Mensual (S/.)
+        endpoint_health:
+          title: URL de Health Check
+          oneOf:
+          - type: string
+            format: uri
+            maxLength: 255
+          - type: string
+            maxLength: 0
+        responsable_username:
+          type: string
+          title: Nombre de usuario
+          description: 'Requerido. 150 carácteres como máximo. Únicamente letras,
+            dígitos y @/./+/-/_ '
+          readOnly: true
+          default: Sin asignar
+        descripcion:
+          type: string
+          title: Descripción Técnica
+        nivel_riesgo:
+          type: string
+          readOnly: true
+        incidencias_activas_count:
+          type: integer
+          readOnly: true
+        _links:
+          type: object
+          additionalProperties: {}
+          readOnly: true
+          title: ' links'
+        created:
+          type: string
+          format: date-time
+          readOnly: true
+          title: Fecha de Registro
+        updated:
+          type: string
+          format: date-time
+          readOnly: true
+          title: Última Actualización
+      required:
+      - _links
+      - codigo_activo
+      - created
+      - departamento
+      - departamento_detalle
+      - departamento_nombre
+      - departamento_url
+      - id
+      - incidencias_activas_count
+      - nivel_riesgo
+      - nombre
+      - responsable_username
+      - updated
+      - url
+    ActivoTIHyperlinkedRequest:
+      type: object
+      description: |-
+        Serializador avanzado con HyperlinkedModelSerializer, campos read-only,
+        anidamiento controlado, validación cruzada e hipervínculos HATEOAS.
+      properties:
+        nombre:
+          type: string
+          minLength: 1
+          title: Nombre del Activo / Servicio
+          maxLength: 140
+        tipo:
+          allOf:
+          - $ref: '#/components/schemas/TipoEnum'
+          title: Tipo de Recurso
+        status:
+          allOf:
+          - $ref: '#/components/schemas/ActivoStatusEnum'
+          title: Estado Operativo
+        criticidad:
+          allOf:
+          - $ref: '#/components/schemas/NivelSeveridadEnum'
+          title: Nivel de Criticidad
+        departamento:
+          type: integer
+        sla_horas:
+          type: integer
+          maximum: 9223372036854775807
+          minimum: 0
+          format: int64
+          title: SLA Comprometido (Horas)
+        costo_mensual:
+          type: string
+          format: decimal
+          pattern: ^-?\d{0,8}(?:\.\d{0,2})?$
+          title: Costo Operativo Mensual (S/.)
+        endpoint_health:
+          title: URL de Health Check
+          oneOf:
+          - type: string
+            format: uri
+            maxLength: 255
+          - type: string
+            maxLength: 0
+        descripcion:
+          type: string
+          title: Descripción Técnica
+      required:
+      - departamento
+      - nombre
+    BitacoraAcceso:
+      type: object
+      description: Serializador de solo lectura para auditar tráfico HTTP de la API.
+      properties:
+        id:
+          type: integer
+          readOnly: true
+        metodo:
+          type: string
+          readOnly: true
+          title: Método HTTP
+        ruta:
+          type: string
+          readOnly: true
+          title: Endpoint
+        usuario:
+          type: string
+          readOnly: true
+          title: Identidad
+        ip_origen:
+          type: string
+          readOnly: true
+          title: IP Cliente
+        codigo_estado:
+          type: integer
+          readOnly: true
+          title: Status Code
+        latencia_ms:
+          type: number
+          format: double
+          readOnly: true
+          title: Latencia (ms)
+        origen_cors:
+          type: string
+          readOnly: true
+          title: Origin Header
+        created:
+          type: string
+          format: date-time
+          readOnly: true
+          title: Timestamp
+      required:
+      - codigo_estado
+      - created
+      - id
+      - ip_origen
+      - latencia_ms
+      - metodo
+      - origen_cors
+      - ruta
+      - usuario
+    CambioEstadoActivoRequest:
+      type: object
+      description: Serializador de entrada para la acción custom @action cambiar-estado.
+      properties:
+        status:
+          $ref: '#/components/schemas/ActivoStatusEnum'
+        motivo:
+          type: string
+          maxLength: 200
+      required:
+      - status
+    Departamento:
+      type: object
+      description: Serializador hipervinculado para departamentos TI con métricas
+        agregadas.
+      properties:
+        id:
+          type: integer
+          readOnly: true
+        url:
+          type: string
+          format: uri
+          readOnly: true
+        codigo:
+          type: string
+          title: Código de Unidad
+          maxLength: 16
+        nombre:
+          type: string
+          title: Nombre del Departamento
+          maxLength: 100
+        sla_objetivo_horas:
+          type: integer
+          maximum: 9223372036854775807
+          minimum: 0
+          format: int64
+          title: SLA Objetivo (Horas)
+        responsable_area:
+          type: string
+          title: Responsable de Área
+          maxLength: 100
+        activo:
+          type: boolean
+          title: Unidad Activa
+        total_activos:
+          type: integer
+          readOnly: true
+        _links:
+          type: object
+          additionalProperties: {}
+          readOnly: true
+          title: ' links'
+        created:
+          type: string
+          format: date-time
+          readOnly: true
+          title: Fecha de Creación
+        updated:
+          type: string
+          format: date-time
+          readOnly: true
+          title: Última Actualización
+      required:
+      - _links
+      - codigo
+      - created
+      - id
+      - nombre
+      - responsable_area
+      - total_activos
+      - updated
+      - url
+    DepartamentoRequest:
+      type: object
+      description: Serializador hipervinculado para departamentos TI con métricas
+        agregadas.
+      properties:
+        codigo:
+          type: string
+          minLength: 1
+          title: Código de Unidad
+          maxLength: 16
+        nombre:
+          type: string
+          minLength: 1
+          title: Nombre del Departamento
+          maxLength: 100
+        sla_objetivo_horas:
+          type: integer
+          maximum: 9223372036854775807
+          minimum: 0
+          format: int64
+          title: SLA Objetivo (Horas)
+        responsable_area:
+          type: string
+          minLength: 1
+          title: Responsable de Área
+          maxLength: 100
+        activo:
+          type: boolean
+          title: Unidad Activa
+      required:
+      - codigo
+      - nombre
+      - responsable_area
+    DepartamentoResumen:
+      type: object
+      description: Representación compacta de solo lectura para anidar en recursos
+        ActivoTI.
+      properties:
+        id:
+          type: integer
+          readOnly: true
+        codigo:
+          type: string
+          title: Código de Unidad
+          maxLength: 16
+        nombre:
+          type: string
+          title: Nombre del Departamento
+          maxLength: 100
+        sla_objetivo_horas:
+          type: integer
+          maximum: 9223372036854775807
+          minimum: 0
+          format: int64
+          title: SLA Objetivo (Horas)
+        activo:
+          type: boolean
+          title: Unidad Activa
+      required:
+      - codigo
+      - id
+      - nombre
+    DepartamentoResumenRequest:
+      type: object
+      description: Representación compacta de solo lectura para anidar en recursos
+        ActivoTI.
+      properties:
+        codigo:
+          type: string
+          minLength: 1
+          title: Código de Unidad
+          maxLength: 16
+        nombre:
+          type: string
+          minLength: 1
+          title: Nombre del Departamento
+          maxLength: 100
+        sla_objetivo_horas:
+          type: integer
+          maximum: 9223372036854775807
+          minimum: 0
+          format: int64
+          title: SLA Objetivo (Horas)
+        activo:
+          type: boolean
+          title: Unidad Activa
+      required:
+      - codigo
+      - nombre
+    IncidenciaAPI:
+      type: object
+      description: Serializador para tickets de incidencia con validación anidada
+        sobre el activo asociado.
+      properties:
+        id:
+          type: integer
+          readOnly: true
+        url:
+          type: string
+          format: uri
+          readOnly: true
+        codigo_ticket:
+          type: string
+          readOnly: true
+          title: Código de Ticket
+        activo:
+          type: integer
+        activo_url:
+          type: string
+          format: uri
+          readOnly: true
+        activo_detalle:
+          allOf:
+          - $ref: '#/components/schemas/ActivoResumen'
+          readOnly: true
+        titulo:
+          type: string
+          title: Título de la Incidencia
+          maxLength: 150
+        descripcion:
+          type: string
+          title: Descripción Técnica
+        status:
+          allOf:
+          - $ref: '#/components/schemas/IncidenciaStatusEnum'
+          title: Estado del Ticket
+        prioridad:
+          $ref: '#/components/schemas/NivelSeveridadEnum'
+        horas_estimadas:
+          type: integer
+          maximum: 9223372036854775807
+          minimum: 0
+          format: int64
+          title: Horas Estimadas de Resolución
+        correo_contacto:
+          type: string
+          format: email
+          title: Correo de Notificación
+          maxLength: 254
+        reportado_por_username:
+          type: string
+          title: Nombre de usuario
+          description: 'Requerido. 150 carácteres como máximo. Únicamente letras,
+            dígitos y @/./+/-/_ '
+          readOnly: true
+          default: Anonimo
+        nivel_impacto:
+          type: string
+          readOnly: true
+        _links:
+          type: object
+          additionalProperties: {}
+          readOnly: true
+          title: ' links'
+        created:
+          type: string
+          format: date-time
+          readOnly: true
+          title: Fecha de Apertura
+        updated:
+          type: string
+          format: date-time
+          readOnly: true
+          title: Última Actualización
+      required:
+      - _links
+      - activo
+      - activo_detalle
+      - activo_url
+      - codigo_ticket
+      - correo_contacto
+      - created
+      - descripcion
+      - id
+      - nivel_impacto
+      - reportado_por_username
+      - titulo
+      - updated
+      - url
+    IncidenciaAPIRequest:
+      type: object
+      description: Serializador para tickets de incidencia con validación anidada
+        sobre el activo asociado.
+      properties:
+        activo:
+          type: integer
+        titulo:
+          type: string
+          minLength: 1
+          title: Título de la Incidencia
+          maxLength: 150
+        descripcion:
+          type: string
+          minLength: 1
+          title: Descripción Técnica
+        status:
+          allOf:
+          - $ref: '#/components/schemas/IncidenciaStatusEnum'
+          title: Estado del Ticket
+        prioridad:
+          $ref: '#/components/schemas/NivelSeveridadEnum'
+        horas_estimadas:
+          type: integer
+          maximum: 9223372036854775807
+          minimum: 0
+          format: int64
+          title: Horas Estimadas de Resolución
+        correo_contacto:
+          type: string
+          format: email
+          minLength: 1
+          title: Correo de Notificación
+          maxLength: 254
+      required:
+      - activo
+      - correo_contacto
+      - descripcion
+      - titulo
+    IncidenciaStatusEnum:
+      enum:
+      - activo
+      - en_progreso
+      - resuelto
+      - cerrado
+      type: string
+      description: |-
+        * `activo` - Activo / Abierto
+        * `en_progreso` - En Progreso
+        * `resuelto` - Resuelto
+        * `cerrado` - Cerrado
+    LoginAPIRequest:
+      type: object
+      description: Serializador de credenciales para autenticación SPA/AJAX o emisión
+        de Token DRF.
+      properties:
+        username:
+          type: string
+          minLength: 1
+          maxLength: 150
+        password:
+          type: string
+          writeOnly: true
+          minLength: 1
+      required:
+      - password
+      - username
+    NivelSeveridadEnum:
+      enum:
+      - BAJA
+      - MEDIA
+      - ALTA
+      - CRITICA
+      type: string
+      description: |-
+        * `BAJA` - Baja
+        * `MEDIA` - Media
+        * `ALTA` - Alta
+        * `CRITICA` - Crítica
+    PaginatedActivoTIHyperlinkedList:
+      type: object
+      required:
+      - count
+      - results
+      properties:
+        count:
+          type: integer
+          example: 123
+        next:
+          type: string
+          nullable: true
+          format: uri
+          example: http://api.example.org/accounts/?page=4
+        previous:
+          type: string
+          nullable: true
+          format: uri
+          example: http://api.example.org/accounts/?page=2
+        results:
+          type: array
+          items:
+            $ref: '#/components/schemas/ActivoTIHyperlinked'
+    PaginatedBitacoraAccesoList:
+      type: object
+      required:
+      - count
+      - results
+      properties:
+        count:
+          type: integer
+          example: 123
+        next:
+          type: string
+          nullable: true
+          format: uri
+          example: http://api.example.org/accounts/?offset=400&limit=100
+        previous:
+          type: string
+          nullable: true
+          format: uri
+          example: http://api.example.org/accounts/?offset=200&limit=100
+        results:
+          type: array
+          items:
+            $ref: '#/components/schemas/BitacoraAcceso'
+    PaginatedDepartamentoList:
+      type: object
+      required:
+      - count
+      - results
+      properties:
+        count:
+          type: integer
+          example: 123
+        next:
+          type: string
+          nullable: true
+          format: uri
+          example: http://api.example.org/accounts/?page=4
+        previous:
+          type: string
+          nullable: true
+          format: uri
+          example: http://api.example.org/accounts/?page=2
+        results:
+          type: array
+          items:
+            $ref: '#/components/schemas/Departamento'
+    PaginatedIncidenciaAPIList:
+      type: object
+      required:
+      - count
+      - results
+      properties:
+        count:
+          type: integer
+          example: 123
+        next:
+          type: string
+          nullable: true
+          format: uri
+          example: http://api.example.org/accounts/?page=4
+        previous:
+          type: string
+          nullable: true
+          format: uri
+          example: http://api.example.org/accounts/?page=2
+        results:
+          type: array
+          items:
+            $ref: '#/components/schemas/IncidenciaAPI'
+    PatchedActivoTIHyperlinkedRequest:
+      type: object
+      description: |-
+        Serializador avanzado con HyperlinkedModelSerializer, campos read-only,
+        anidamiento controlado, validación cruzada e hipervínculos HATEOAS.
+      properties:
+        nombre:
+          type: string
+          minLength: 1
+          title: Nombre del Activo / Servicio
+          maxLength: 140
+        tipo:
+          allOf:
+          - $ref: '#/components/schemas/TipoEnum'
+          title: Tipo de Recurso
+        status:
+          allOf:
+          - $ref: '#/components/schemas/ActivoStatusEnum'
+          title: Estado Operativo
+        criticidad:
+          allOf:
+          - $ref: '#/components/schemas/NivelSeveridadEnum'
+          title: Nivel de Criticidad
+        departamento:
+          type: integer
+        sla_horas:
+          type: integer
+          maximum: 9223372036854775807
+          minimum: 0
+          format: int64
+          title: SLA Comprometido (Horas)
+        costo_mensual:
+          type: string
+          format: decimal
+          pattern: ^-?\d{0,8}(?:\.\d{0,2})?$
+          title: Costo Operativo Mensual (S/.)
+        endpoint_health:
+          title: URL de Health Check
+          oneOf:
+          - type: string
+            format: uri
+            maxLength: 255
+          - type: string
+            maxLength: 0
+        descripcion:
+          type: string
+          title: Descripción Técnica
+    PatchedDepartamentoRequest:
+      type: object
+      description: Serializador hipervinculado para departamentos TI con métricas
+        agregadas.
+      properties:
+        codigo:
+          type: string
+          minLength: 1
+          title: Código de Unidad
+          maxLength: 16
+        nombre:
+          type: string
+          minLength: 1
+          title: Nombre del Departamento
+          maxLength: 100
+        sla_objetivo_horas:
+          type: integer
+          maximum: 9223372036854775807
+          minimum: 0
+          format: int64
+          title: SLA Objetivo (Horas)
+        responsable_area:
+          type: string
+          minLength: 1
+          title: Responsable de Área
+          maxLength: 100
+        activo:
+          type: boolean
+          title: Unidad Activa
+    PatchedIncidenciaAPIRequest:
+      type: object
+      description: Serializador para tickets de incidencia con validación anidada
+        sobre el activo asociado.
+      properties:
+        activo:
+          type: integer
+        titulo:
+          type: string
+          minLength: 1
+          title: Título de la Incidencia
+          maxLength: 150
+        descripcion:
+          type: string
+          minLength: 1
+          title: Descripción Técnica
+        status:
+          allOf:
+          - $ref: '#/components/schemas/IncidenciaStatusEnum'
+          title: Estado del Ticket
+        prioridad:
+          $ref: '#/components/schemas/NivelSeveridadEnum'
+        horas_estimadas:
+          type: integer
+          maximum: 9223372036854775807
+          minimum: 0
+          format: int64
+          title: Horas Estimadas de Resolución
+        correo_contacto:
+          type: string
+          format: email
+          minLength: 1
+          title: Correo de Notificación
+          maxLength: 254
+    TipoEnum:
+      enum:
+      - MICROSERVICIO
+      - BASE_DATOS
+      - SERVIDOR
+      - GATEWAY
+      - APLICACION
+      type: string
+      description: |-
+        * `MICROSERVICIO` - Microservicio REST/gRPC
+        * `BASE_DATOS` - Motor de Base de Datos
+        * `SERVIDOR` - Servidor / Nodo Compute
+        * `GATEWAY` - API Gateway / Proxy
+        * `APLICACION` - Aplicación Web Institucional
+    UsuarioSeguro:
+      type: object
+      description: 'Serializador seguro de usuario: excluye explícitamente password,
+        is_staff y is_superuser.'
+      properties:
+        id:
+          type: integer
+          readOnly: true
+        username:
+          type: string
+          readOnly: true
+          title: Nombre de usuario
+          description: 'Requerido. 150 carácteres como máximo. Únicamente letras,
+            dígitos y @/./+/-/_ '
+        first_name:
+          type: string
+          title: Nombre
+          maxLength: 150
+        last_name:
+          type: string
+          title: Apellidos
+          maxLength: 150
+        email:
+          title: Dirección de correo electrónico
+          oneOf:
+          - type: string
+            format: email
+            maxLength: 254
+          - type: string
+            maxLength: 0
+      required:
+      - id
+      - username
+  securitySchemes:
+    cookieAuth:
+      type: apiKey
+      in: cookie
+      name: sessionid
+    tokenAuth:
+      type: apiKey
+      in: header
+      name: Authorization
+      description: Token-based authentication with required prefix "Token"
+tags:
+- name: Departamentos
+  description: Unidades orgánicas y acuerdos SLA base.
+- name: Activos TI
+  description: Catálogo de microservicios, servidores y bases de datos con HATEOAS.
+- name: Incidencias
+  description: Gestión operativa de tickets e incidencias asociadas a activos TI.
+- name: Bitácora
+  description: Trazabilidad de solo lectura de peticiones HTTP y latencia.
+- name: Autenticación & CSRF
+  description: Gestión de sesión SPA, token CSRF y tokens DRF stateless.
+- name: Infraestructura
+  description: Health-check y diagnóstico para despliegue en contenedores (Semana
+    14).

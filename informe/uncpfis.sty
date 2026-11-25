@@ -1,0 +1,216 @@
+\NeedsTeXFormat{LaTeX2e}
+\ProvidesPackage{uncpfis}[2026/11/25 Estilo Oficial UNCP FIS - Desarrollo de Aplicaciones Web]
+
+% ==============================================================================
+% PAQUETES FUNDAMENTALES Y TIPOGRAFÍA ARIAL (HELVET)
+% ==============================================================================
+\RequirePackage{geometry}
+\geometry{
+    top=2.5cm,
+    bottom=2.5cm,
+    left=2.3cm,
+    right=2.3cm,
+    headheight=32pt,
+    footskip=20pt
+}
+
+\RequirePackage[utf8]{inputenc}
+\RequirePackage[spanish,es-tabla]{babel}
+\RequirePackage{amsmath}
+\RequirePackage{xcolor}
+\RequirePackage{graphicx}
+\RequirePackage{fancyhdr}
+\RequirePackage{hyperref}
+\RequirePackage{titlesec}
+\RequirePackage{tcolorbox}
+\RequirePackage{booktabs}
+\RequirePackage{tabularx}
+\RequirePackage{lastpage}
+\RequirePackage{listings}
+\RequirePackage{float}
+\RequirePackage{tikz}
+\usetikzlibrary{arrows.meta, positioning, calc, shapes.geometric}
+
+% TIPOGRAFÍA ARIAL (CLON HELVÉTICA PARA LATEX)
+\RequirePackage[scaled=0.95]{helvet}
+\renewcommand{\familydefault}{\sfdefault}
+
+% ==============================================================================
+% PALETA DE COLORES INSTITUCIONALES UNCP & FIS
+% ==============================================================================
+\definecolor{uncpgreen}{RGB}{0, 104, 55}      % Verde Institucional UNCP (#006837)
+\definecolor{uncpgold}{RGB}{194, 110, 0}      % Ámbar / Dorado (#C26E00)
+\definecolor{uncpnavy}{RGB}{12, 35, 64}       % Azul Marino FIS (#0C2340)
+\definecolor{uncpblue}{RGB}{2, 132, 199}      % Azul Tech (#0284C7)
+\definecolor{uncplight}{RGB}{248, 250, 252}   % Fondo Gris Suave (#F8FAFC)
+\definecolor{uncpborder}{RGB}{226, 232, 240}  % Borde Neutro (#E2E8F0)
+\definecolor{uncpgrey}{RGB}{100, 116, 139}    % Gris Texto Secundario (#64748B)
+\definecolor{uncpdark}{RGB}{15, 23, 42}       % Texto Principal (#0F172A)
+\definecolor{uncpred}{RGB}{185, 28, 28}       % Alerta / Peligro (#B91C1C)
+
+% ==============================================================================
+% CONFIGURACIÓN DE HYPERREF
+% ==============================================================================
+\hypersetup{
+    colorlinks=true,
+    linkcolor=uncpnavy,
+    urlcolor=uncpblue,
+    citecolor=uncpgreen,
+    pdfborder={0 0 0}
+}
+
+% ==============================================================================
+% ENCABEZADOS Y PIES DE PÁGINA (FANCYHDR)
+% ==============================================================================
+\pagestyle{fancy}
+\fancyhf{}
+\renewcommand{\headrulewidth}{0.8pt}
+\renewcommand{\footrulewidth}{0.5pt}
+
+\renewcommand{\headrule}{\hbox to\headwidth{\color{uncpgreen}\leaders\hrule height \headrulewidth\hfill}}
+\renewcommand{\footrule}{\hbox to\headwidth{\color{uncpborder}\leaders\hrule height \footrulewidth\hfill}}
+
+\lhead{%
+    \small\textbf{\color{uncpnavy}UNCP \textbar\ Facultad de Ingeniería de Sistemas}\\[1pt]%
+    \footnotesize\color{uncpgrey}Desarrollo de Aplicaciones Web (IS093A) -- 2026-II%
+}
+\rhead{%
+    \IfFileExists{logo-uncp.png}{%
+        \raisebox{-0.1cm}{\includegraphics[height=0.75cm]{logo-uncp.png}}%
+    }{%
+        \textbf{\color{uncpgreen}UNCP-FIS}%
+    }%
+}
+
+\lfoot{\footnotesize\color{uncpgrey}\textbf{Estudiante:} José Pablo Osorio Mallqui \ \textbar\ \textbf{Docente:} Ing. Miguel Aguilar}
+\rfoot{\footnotesize\color{uncpgrey}Pág. \thepage\ de \pageref{LastPage}}
+
+\fancypagestyle{plain}{
+    \fancyhf{}
+    \renewcommand{\headrulewidth}{0pt}
+    \renewcommand{\footrulewidth}{0.5pt}
+    \lfoot{\footnotesize\color{uncpgrey}Universidad Nacional del Centro del Perú \textbar\ FIS}
+    \rfoot{\footnotesize\color{uncpgrey}Pág. \thepage\ de \pageref{LastPage}}
+}
+
+% ==============================================================================
+% SISTEMA COMPACTO Y ELEGANTE DE TÍTULOS Y SUBTÍTULOS
+% ==============================================================================
+\titleformat{\section}
+    {\color{uncpnavy}\normalfont\large\bfseries}
+    {\color{uncpgreen}\rule[-1pt]{3pt}{12pt}\hspace{6pt}\thesection.}{0.4em}{}
+    [\vspace{-0.3em}\color{uncpborder}\rule{\textwidth}{0.8pt}\vspace{-0.4em}]
+
+\titleformat{\subsection}
+    {\color{uncpnavy}\normalfont\normalsize\bfseries}
+    {\color{uncpgold}\thesubsection}{0.5em}{}
+
+\titleformat{\subsubsection}
+    {\color{uncpgrey}\normalfont\small\bfseries}
+    {\thesubsubsection}{0.5em}{}
+
+\titlespacing*{\section}{0pt}{1.3em}{0.6em}
+\titlespacing*{\subsection}{0pt}{1.0em}{0.4em}
+\titlespacing*{\subsubsection}{0pt}{0.8em}{0.3em}
+
+% ==============================================================================
+% CONFIGURACIÓN DE LISTINGS PARA CÓDIGO FUENTE
+% ==============================================================================
+\lstdefinestyle{uncpcode}{
+    language=Python,
+    basicstyle=\ttfamily\footnotesize\color{uncpdark},
+    backgroundcolor=\color{uncplight},
+    keywordstyle=\color{uncpnavy}\bfseries,
+    stringstyle=\color{uncpgreen},
+    commentstyle=\color{uncpgrey}\itshape,
+    identifierstyle=\color{uncpdark},
+    numberstyle=\tiny\color{uncpgrey},
+    numbers=none,
+    frame=single,
+    rulecolor=\color{uncpborder},
+    breaklines=true,
+    breakatwhitespace=true,
+    tabsize=2,
+    showstringspaces=false,
+    captionpos=b,
+    xleftmargin=6pt,
+    xrightmargin=6pt,
+    framexleftmargin=4pt,
+    framexrightmargin=4pt,
+    framextopmargin=4pt,
+    framexbottommargin=4pt
+}
+
+% Macro para marco de captura sin overfull hbox ni desbordamiento vertical
+\newcommand{\uncpimagebox}[1]{%
+    \fboxsep=0pt\fboxrule=0.6pt\relax%
+    \fcolorbox{uncpborder}{white}{\includegraphics[width=\dimexpr\linewidth-1.2pt\relax, height=0.75\textheight, keepaspectratio]{#1}}%
+}
+
+% ==============================================================================
+% CAJAS DE INFORMACIÓN Y ALERTAS (TCOLORBOX)
+% ==============================================================================
+\tcbuselibrary{skins}
+
+\newtcolorbox{uncpcard}[2][]{
+    enhanced,
+    colback=uncplight,
+    colframe=uncpnavy,
+    colbacktitle=uncpnavy,
+    coltitle=white,
+    fonttitle=\bfseries\small,
+    title=#2,
+    arc=3pt,
+    boxrule=0.8pt,
+    leftrule=4pt,
+    titlerule=0pt,
+    top=5pt, bottom=5pt, left=8pt, right=8pt,
+    #1
+}
+
+\newtcolorbox{uncpnote}[2][]{
+    enhanced,
+    colback=uncplight,
+    colframe=uncpgreen,
+    colbacktitle=uncpgreen,
+    coltitle=white,
+    fonttitle=\bfseries\small,
+    title=#2,
+    arc=3pt,
+    boxrule=0.8pt,
+    leftrule=4pt,
+    titlerule=0pt,
+    top=5pt, bottom=5pt, left=8pt, right=8pt,
+    #1
+}
+
+% ==============================================================================
+% CABECERA COMPACTA DE INFORME INDIVIDUAL
+% ==============================================================================
+\newcommand{\makeheaderuncp}[5]{
+    \begin{center}
+        \vspace*{-0.5cm}
+        {\color{uncpgreen}\hrule height 2pt}\vspace{0.15cm}
+        {\large\bfseries\color{uncpnavy} #1}\\[0.2cm]
+        {\normalsize\color{uncpgrey} #2}\\[0.35cm]
+        {\color{uncpgold}\hrule height 1pt}\vspace{0.35cm}
+
+        \begin{tcolorbox}[
+            colback=uncplight,
+            colframe=uncpborder,
+            boxrule=0.8pt,
+            arc=3pt,
+            left=10pt, right=10pt, top=7pt, bottom=7pt
+        ]
+            \small
+            \begin{tabularx}{\textwidth}{@{}l X l X@{}}
+                \textbf{\color{uncpnavy}Asignatura:} & #3 & \textbf{\color{uncpnavy}Fecha:} & 25 de noviembre de 2026 \\
+                \addlinespace[2pt]
+                \textbf{\color{uncpnavy}Estudiante:} & \multicolumn{3}{X}{\textbf{#4}} \\
+                \addlinespace[2pt]
+                \textbf{\color{uncpnavy}Docente Titular:} & \multicolumn{3}{X}{\textbf{#5}} \\
+            \end{tabularx}
+        \end{tcolorbox}
+    \end{center}
+    \vspace{0.2cm}
+}

@@ -1,0 +1,25 @@
+# Entorno y dependencias
+.venv/
+__pycache__/
+*.pyc
+*.pyo
+*$py.class
+
+# Base de datos local
+*.sqlite3
+
+# Logs y temporales
+*.log
+_tmp*.png
+*.aux
+*.fls
+*.fdb_latexmk
+*.out
+*.toc
+*.synctex.gz
+
+# IDEs
+.vscode/
+.idea/
+.DS_Store
+Thumbs.db

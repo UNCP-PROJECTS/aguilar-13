@@ -1,0 +1,478 @@
+{% extends 'base.html' %}
+
+{% block title %}Consola RESTful &amp; HATEOAS &bull; TechGrid API{% endblock %}
+
+{% block extra_head %}
+<style>
+    .kpi-grid {
+        display: grid;
+        grid-template-columns: repeat(4, 1fr);
+        gap: 14px;
+        margin-bottom: 20px;
+    }
+    .kpi-card {
+        background: var(--white);
+        border: 1px solid var(--slate-200);
+        border-left: 4px solid var(--uncp-navy);
+        border-radius: 6px;
+        padding: 14px 16px;
+    }
+    .kpi-label { font-size: 11px; font-weight: 700; color: var(--slate-500); text-transform: uppercase; }
+    .kpi-value { font-size: 22px; font-weight: 800; color: var(--slate-900); margin-top: 2px; }
+    .kpi-sub { font-size: 11px; color: var(--slate-500); margin-top: 2px; }
+    .split-grid {
+        display: grid;
+        grid-template-columns: 1.55fr 1fr;
+        gap: 20px;
+        align-items: start;
+    }
+    .toolbar-row {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 10px;
+        align-items: center;
+        margin-bottom: 14px;
+        padding: 12px;
+        background: var(--slate-100);
+        border: 1px solid var(--slate-200);
+        border-radius: 6px;
+    }
+    .url-bar {
+        font-family: Consolas, "Courier New", monospace;
+        font-size: 12px;
+        background: #0f172a;
+        color: #e2e8f0;
+        padding: 8px 12px;
+        border-radius: 5px;
+        margin-bottom: 14px;
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        gap: 10px;
+    }
+    .json-viewer {
+        font-family: Consolas, "Courier New", monospace;
+        font-size: 11.5px;
+        background: #0f172a;
+        color: #cbd5e1;
+        padding: 12px;
+        border-radius: 6px;
+        max-height: 360px;
+        overflow: auto;
+        white-space: pre-wrap;
+        word-break: break-word;
+    }
+    .hateoas-pill {
+        display: inline-block;
+        padding: 2px 7px;
+        font-size: 11px;
+        font-weight: 600;
+        color: var(--uncp-blue);
+        background: #eff6ff;
+        border: 1px solid #bfdbfe;
+        border-radius: 4px;
+        cursor: pointer;
+        text-decoration: none;
+        margin: 2px 2px 2px 0;
+    }
+    .hateoas-pill:hover { background: #dbeafe; }
+    .header-kv {
+        display: flex;
+        justify-content: space-between;
+        padding: 5px 0;
+        border-bottom: 1px solid var(--slate-200);
+        font-size: 12px;
+    }
+    .form-row {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 10px;
+        margin-bottom: 10px;
+    }
+    .field-label { display: block; font-size: 11.5px; font-weight: 700; color: var(--slate-700); margin-bottom: 4px; }
+    .status-banner {
+        padding: 9px 12px;
+        border-radius: 6px;
+        font-size: 12.5px;
+        font-weight: 600;
+        margin-bottom: 12px;
+        display: none;
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<!-- Métricas Globales del Servicio -->
+<div class="kpi-grid">
+    <div class="kpi-card">
+        <div class="kpi-label">Departamentos TI</div>
+        <div class="kpi-value">{{ total_departamentos }}</div>
+        <div class="kpi-sub">Unidades con SLA indexado</div>
+    </div>
+    <div class="kpi-card" style="border-left-color: var(--uncp-green);">
+        <div class="kpi-label">Activos TI Operativos</div>
+        <div class="kpi-value">{{ activos_operativos }} / {{ total_activos }}</div>
+        <div class="kpi-sub">Filtro lazy ?status=activo</div>
+    </div>
+    <div class="kpi-card" style="border-left-color: var(--warning-solid);">
+        <div class="kpi-label">Incidencias Abiertas</div>
+        <div class="kpi-value">{{ incidencias_activas }}</div>
+        <div class="kpi-sub">Validación anidada DRF</div>
+    </div>
+    <div class="kpi-card" style="border-left-color: var(--uncp-blue);">
+        <div class="kpi-label">Sesión &amp; CSRF SPA</div>
+        <div class="kpi-value" id="authStatusBadge" style="font-size: 15px; margin-top: 6px;">
+            {% if user.is_authenticated %}Autenticado ({{ user.username }}){% else %}Invitado (Solo Lectura){% endif %}
+        </div>
+        <div class="kpi-sub" id="csrfPreview">X-CSRFToken activo vía cookie</div>
+    </div>
+</div>
+
+<div class="split-grid">
+    <!-- Columna Izquierda: Explorador REST + Paginación + Filtros + HATEOAS -->
+    <div>
+        <div class="card">
+            <div class="card-header">
+                <h1 class="card-title">
+                    <svg class="lucide-icon" fill="none" stroke="currentColor" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"></circle><line x1="2" y1="12" x2="22" y2="12"></line><path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"></path></svg>
+                    Explorador RESTful, Filtrado y Navegación HATEOAS
+                </h1>
+                <span class="badge badge-info">REST API v1</span>
+            </div>
+
+            <div class="toolbar-row">
+                <select id="filterStatus" class="form-select">
+                    <option value="">Estado: Todos</option>
+                    <option value="activo" selected>status=activo</option>
+                    <option value="mantenimiento">status=mantenimiento</option>
+                    <option value="degradado">status=degradado</option>
+                    <option value="inactivo">status=inactivo</option>
+                </select>
+                <select id="filterCriticidad" class="form-select">
+                    <option value="">Criticidad: Todas</option>
+                    <option value="CRITICA">CRITICA</option>
+                    <option value="ALTA">ALTA</option>
+                    <option value="MEDIA">MEDIA</option>
+                    <option value="BAJA">BAJA</option>
+                </select>
+                <select id="filterOrdering" class="form-select">
+                    <option value="-created" selected>ordering=-created</option>
+                    <option value="sla_horas">ordering=sla_horas</option>
+                    <option value="-costo_mensual">ordering=-costo_mensual</option>
+                </select>
+                <input id="filterSearch" class="form-input" type="text" placeholder="Buscar (?search=...)" style="width: 155px;" />
+                <button class="btn btn-primary" id="btnConsultarActivos" onclick="cargarActivos(1)">Consultar API</button>
+            </div>
+
+            <div class="url-bar">
+                <span id="currentRequestUrl">GET /api/v1/activos/?status=activo&amp;page=1&amp;ordering=-created</span>
+                <span id="httpStatusBadge" class="badge badge-activo">HTTP 200</span>
+            </div>
+
+            <div style="overflow-x: auto;">
+                <table class="data-table">
+                    <thead>
+                        <tr>
+                            <th>Código / Activo TI</th>
+                            <th>Estado &amp; Riesgo</th>
+                            <th>SLA</th>
+                            <th>Navegación HATEOAS (_links)</th>
+                        </tr>
+                    </thead>
+                    <tbody id="activosTableBody">
+                        <tr><td colspan="4" style="text-align:center; color: var(--slate-500);">Cargando recursos desde /api/v1/activos/...</td></tr>
+                    </tbody>
+                </table>
+            </div>
+
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-top: 14px;">
+                <span id="paginationInfo" style="font-size: 12px; color: var(--slate-600);">Paginación estándar DRF</span>
+                <div style="display: flex; gap: 8px;">
+                    <button class="btn btn-secondary" id="btnPrevPage" disabled>Anterior</button>
+                    <button class="btn btn-secondary" id="btnNextPage" disabled>Siguiente</button>
+                </div>
+            </div>
+        </div>
+
+        <div class="card">
+            <div class="card-header">
+                <h2 class="card-title" style="font-size: 15px;">
+                    <svg class="lucide-icon" fill="none" stroke="currentColor" viewBox="0 0 24 24"><polyline points="16 18 22 12 16 6"></polyline><polyline points="8 6 2 12 8 18"></polyline></svg>
+                    Inspector JSON Payload (HyperlinkedModelSerializer + HATEOAS)
+                </h2>
+                <button class="btn btn-secondary" onclick="probarThrottling()">Probar Throttling (5/min)</button>
+            </div>
+            <pre id="jsonPayloadViewer" class="json-viewer">{}</pre>
+        </div>
+    </div>
+
+    <!-- Columna Derecha: Autenticación SPA/CSRF + Alta AJAX + Inspector de Headers -->
+    <div>
+        <div class="card">
+            <div class="card-header">
+                <h2 class="card-title" style="font-size: 15px;">
+                    <svg class="lucide-icon" fill="none" stroke="currentColor" viewBox="0 0 24 24"><rect width="18" height="11" x="3" y="11" rx="2" ry="2"></rect><path d="M7 11V7a5 5 0 0 1 10 0v4"></path></svg>
+                    Autenticación SPA (Sesión + X-CSRFToken)
+                </h2>
+            </div>
+            <div id="authMessage" class="status-banner"></div>
+            <div class="form-row">
+                <div>
+                    <label class="field-label" for="spaUsername">Usuario</label>
+                    <input id="spaUsername" class="form-input" style="width:100%;" value="admin" />
+                </div>
+                <div>
+                    <label class="field-label" for="spaPassword">Contraseña</label>
+                    <input id="spaPassword" type="password" class="form-input" style="width:100%;" value="admin123" />
+                </div>
+            </div>
+            <div style="display: flex; gap: 8px; flex-wrap: wrap;">
+                <button class="btn btn-primary" id="btnSpaLogin" onclick="loginSpa()">Iniciar Sesión SPA (CSRF)</button>
+                <button class="btn btn-secondary" id="btnSpaLogout" onclick="logoutSpa()">Cerrar Sesión</button>
+            </div>
+        </div>
+
+        <div class="card">
+            <div class="card-header">
+                <h2 class="card-title" style="font-size: 15px;">
+                    <svg class="lucide-icon" fill="none" stroke="currentColor" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"></circle><line x1="12" y1="8" x2="12" y2="16"></line><line x1="8" y1="12" x2="16" y2="12"></line></svg>
+                    Registro AJAX vía POST (Validación DRF)
+                </h2>
+            </div>
+            <div id="createMessage" class="status-banner"></div>
+            <div class="form-row">
+                <div>
+                    <label class="field-label" for="nuevoNombre">Nombre del Activo TI</label>
+                    <input id="nuevoNombre" class="form-input" style="width:100%;" placeholder="Ej. Microservicio Facturación" />
+                </div>
+                <div>
+                    <label class="field-label" for="nuevoTipo">Tipo</label>
+                    <select id="nuevoTipo" class="form-select" style="width:100%;">
+                        <option value="MICROSERVICIO">MICROSERVICIO</option>
+                        <option value="BASE_DATOS">BASE_DATOS</option>
+                        <option value="SERVIDOR">SERVIDOR</option>
+                        <option value="GATEWAY">GATEWAY</option>
+                    </select>
+                </div>
+            </div>
+            <div class="form-row">
+                <div>
+                    <label class="field-label" for="nuevaCriticidad">Criticidad</label>
+                    <select id="nuevaCriticidad" class="form-select" style="width:100%;">
+                        <option value="MEDIA">MEDIA</option>
+                        <option value="ALTA">ALTA</option>
+                        <option value="CRITICA">CRITICA</option>
+                        <option value="BAJA">BAJA</option>
+                    </select>
+                </div>
+                <div>
+                    <label class="field-label" for="nuevoSla">SLA (Horas)</label>
+                    <input id="nuevoSla" type="number" class="form-input" style="width:100%;" value="6" />
+                </div>
+            </div>
+            <div class="form-row">
+                <div>
+                    <label class="field-label" for="nuevoDepto">ID Departamento</label>
+                    <input id="nuevoDepto" type="number" class="form-input" style="width:100%;" value="1" />
+                </div>
+                <div>
+                    <label class="field-label" for="nuevoHealth">Endpoint Health</label>
+                    <input id="nuevoHealth" class="form-input" style="width:100%;" value="https://api.uncp.edu.pe/v1/health" />
+                </div>
+            </div>
+            <button class="btn btn-blue" id="btnCrearActivo" onclick="crearActivoAjax()" style="width: 100%; justify-content: center;">
+                Enviar POST /api/v1/activos/ (con X-CSRFToken)
+            </button>
+        </div>
+
+        <div class="card">
+            <div class="card-header">
+                <h2 class="card-title" style="font-size: 15px;">
+                    <svg class="lucide-icon" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"></path></svg>
+                    Cabeceras HTTP, CORS &amp; Telemetría
+                </h2>
+            </div>
+            <div class="header-kv"><span>X-Response-Time-Ms:</span><strong id="hdrLatency">-</strong></div>
+            <div class="header-kv"><span>X-API-Version:</span><strong id="hdrVersion">-</strong></div>
+            <div class="header-kv"><span>X-Service-Mode:</span><strong id="hdrMode">-</strong></div>
+            <div class="header-kv"><span>X-Frame-Options:</span><strong id="hdrFrame">-</strong></div>
+            <div class="header-kv" style="border-bottom:none;"><span>Token CSRF Activo:</span><code id="hdrCsrf">-</code></div>
+        </div>
+    </div>
+</div>
+
+<script>
+    let nextUrl = null;
+    let prevUrl = null;
+
+    function getCookie(name) {
+        const value = `; ${document.cookie}`;
+        const parts = value.split(`; ${name}=`);
+        if (parts.length === 2) return parts.pop().split(';').shift();
+        return '';
+    }
+
+    function updateHeadersInspector(response) {
+        document.getElementById('hdrLatency').textContent = (response.headers.get('X-Response-Time-Ms') || '0.00') + ' ms';
+        document.getElementById('hdrVersion').textContent = response.headers.get('X-API-Version') || 'v1';
+        document.getElementById('hdrMode').textContent = response.headers.get('X-Service-Mode') || 'microservice-ready';
+        document.getElementById('hdrFrame').textContent = response.headers.get('X-Frame-Options') || 'DENY';
+        const csrfVal = getCookie('csrftoken');
+        document.getElementById('hdrCsrf').textContent = csrfVal ? csrfVal.slice(0, 14) + '...' : 'No emitido';
+        const badge = document.getElementById('httpStatusBadge');
+        badge.textContent = `HTTP ${response.status}`;
+        badge.className = 'badge ' + (response.status < 400 ? 'badge-activo' : 'badge-degradado');
+    }
+
+    async function fetchApiUrl(url, method = 'GET', body = null) {
+        const headers = { 'Accept': 'application/json' };
+        if (method !== 'GET') {
+            headers['Content-Type'] = 'application/json';
+            headers['X-CSRFToken'] = getCookie('csrftoken');
+        }
+        document.getElementById('currentRequestUrl').textContent = `${method} ${url.replace(window.location.origin, '')}`;
+        const res = await fetch(url, {
+            method,
+            headers,
+            credentials: 'same-origin',
+            body: body ? JSON.stringify(body) : null,
+        });
+        updateHeadersInspector(res);
+        const text = await res.text();
+        let data;
+        try {
+            data = text ? JSON.parse(text) : {};
+        } catch (err) {
+            data = { raw_response: text.slice(0, 400) };
+        }
+        document.getElementById('jsonPayloadViewer').textContent = JSON.stringify(data, null, 2);
+        return { res, data };
+    }
+
+    async function cargarActivos(page = 1) {
+        const params = new URLSearchParams();
+        const st = document.getElementById('filterStatus').value;
+        const crit = document.getElementById('filterCriticidad').value;
+        const ord = document.getElementById('filterOrdering').value;
+        const search = document.getElementById('filterSearch').value.trim();
+
+        if (st) params.set('status', st);
+        if (crit) params.set('criticidad', crit);
+        if (ord) params.set('ordering', ord);
+        if (search) params.set('search', search);
+        params.set('page', page);
+
+        await ejecutarListado(`/api/v1/activos/?${params.toString()}`);
+    }
+
+    async function ejecutarListado(url) {
+        const { res, data } = await fetchApiUrl(url);
+        if (!res.ok) return;
+
+        const items = data.results || [];
+        nextUrl = data.next;
+        prevUrl = data.previous;
+
+        document.getElementById('btnNextPage').disabled = !nextUrl;
+        document.getElementById('btnPrevPage').disabled = !prevUrl;
+        document.getElementById('btnNextPage').onclick = () => nextUrl && ejecutarListado(nextUrl);
+        document.getElementById('btnPrevPage').onclick = () => prevUrl && ejecutarListado(prevUrl);
+        document.getElementById('paginationInfo').textContent = `Total encontrados: ${data.count ?? items.length} registro(s)`;
+
+        const tbody = document.getElementById('activosTableBody');
+        if (!items.length) {
+            tbody.innerHTML = '<tr><td colspan="4" style="text-align:center;color:var(--slate-500);">Sin resultados para los filtros seleccionados.</td></tr>';
+            return;
+        }
+
+        tbody.innerHTML = items.map(item => `
+            <tr>
+                <td>
+                    <code>${item.codigo_activo}</code><br>
+                    <strong>${item.nombre}</strong>
+                    <div style="font-size:11px;color:var(--slate-500);">${item.departamento_nombre} &bull; ${item.tipo}</div>
+                </td>
+                <td>
+                    <span class="badge badge-${item.status}">${item.status}</span>
+                    <span class="badge badge-${item.criticidad.toLowerCase()}" style="margin-left:3px;">${item.criticidad}</span>
+                    <div style="font-size:11px;color:var(--slate-600);margin-top:3px;">Riesgo: <strong>${item.nivel_riesgo}</strong></div>
+                </td>
+                <td><strong>${item.sla_horas}h</strong></td>
+                <td>
+                    <a class="hateoas-pill" onclick="fetchApiUrl('${item._links.self}')">self</a>
+                    <a class="hateoas-pill" onclick="fetchApiUrl('${item._links.departamento}')">departamento</a>
+                    <a class="hateoas-pill" onclick="fetchApiUrl('${item._links.incidencias}')">incidencias (${item.incidencias_activas_count})</a>
+                </td>
+            </tr>
+        `).join('');
+    }
+
+    async function loginSpa() {
+        await fetch('/api/v1/auth/csrf/', { credentials: 'same-origin' });
+        const username = document.getElementById('spaUsername').value;
+        const password = document.getElementById('spaPassword').value;
+        const { res, data } = await fetchApiUrl('/api/v1/auth/login/', 'POST', { username, password });
+        const banner = document.getElementById('authMessage');
+        banner.style.display = 'block';
+        if (res.ok) {
+            banner.style.background = 'var(--success-bg)';
+            banner.style.color = 'var(--success-solid)';
+            banner.textContent = `Sesión iniciada (${data.user.username}) • Token: ${data.token.slice(0, 12)}...`;
+            document.getElementById('authStatusBadge').textContent = `Autenticado (${data.user.username})`;
+        } else {
+            banner.style.background = 'var(--danger-bg)';
+            banner.style.color = 'var(--danger-solid)';
+            banner.textContent = data.detail || 'Error de autenticación';
+        }
+    }
+
+    async function logoutSpa() {
+        const { res } = await fetchApiUrl('/api/v1/auth/logout/', 'POST', {});
+        const banner = document.getElementById('authMessage');
+        banner.style.display = 'block';
+        if (res.ok) {
+            banner.style.background = 'var(--slate-100)';
+            banner.style.color = 'var(--slate-700)';
+            banner.textContent = 'Sesión cerrada correctamente.';
+            document.getElementById('authStatusBadge').textContent = 'Invitado (Solo Lectura)';
+        }
+    }
+
+    async function crearActivoAjax() {
+        const payload = {
+            nombre: document.getElementById('nuevoNombre').value,
+            tipo: document.getElementById('nuevoTipo').value,
+            status: 'activo',
+            criticidad: document.getElementById('nuevaCriticidad').value,
+            departamento: parseInt(document.getElementById('nuevoDepto').value, 10),
+            sla_horas: parseInt(document.getElementById('nuevoSla').value, 10),
+            costo_mensual: '290.00',
+            endpoint_health: document.getElementById('nuevoHealth').value,
+            descripcion: 'Registro creado vía cliente SPA/AJAX con cabecera X-CSRFToken.',
+        };
+        const { res, data } = await fetchApiUrl('/api/v1/activos/', 'POST', payload);
+        const banner = document.getElementById('createMessage');
+        banner.style.display = 'block';
+        if (res.ok) {
+            banner.style.background = 'var(--success-bg)';
+            banner.style.color = 'var(--success-solid)';
+            banner.textContent = `HTTP 201 Created: ${data.codigo_activo} registrado.`;
+            cargarActivos(1);
+        } else {
+            banner.style.background = 'var(--danger-bg)';
+            banner.style.color = 'var(--danger-solid)';
+            banner.textContent = `HTTP ${res.status}: ` + JSON.stringify(data);
+        }
+    }
+
+    async function probarThrottling() {
+        let last = null;
+        for (let i = 0; i < 6; i++) {
+            last = await fetchApiUrl('/api/v1/activos/throttle-probe/');
+            if (last.res.status === 429) break;
+        }
+    }
+
+    document.addEventListener('DOMContentLoaded', () => cargarActivos(1));
+</script>
+{% endblock %}

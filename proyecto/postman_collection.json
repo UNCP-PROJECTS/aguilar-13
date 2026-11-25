@@ -1,0 +1,140 @@
+{
+  "info": {
+    "name": "UNCP FIS - TechGrid RESTful API Gateway (Semana 13)",
+    "description": "Colección oficial de validación HTTP para la Guía Práctica 13: DRF, Serialización Avanzada, ViewSets/Routers, Filtrado, Paginación, Throttling, CORS/CSRF, HATEOAS y OpenAPI 3.0.",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "variable": [
+    { "key": "baseUrl", "value": "http://127.0.0.1:8000" },
+    { "key": "apiToken", "value": "" },
+    { "key": "csrfToken", "value": "" }
+  ],
+  "item": [
+    {
+      "name": "1. Autenticación & CSRF",
+      "item": [
+        {
+          "name": "GET Obtener Cookie y Token CSRF (SPA)",
+          "request": {
+            "method": "GET",
+            "url": "{{baseUrl}}/api/v1/auth/csrf/"
+          }
+        },
+        {
+          "name": "POST Obtener Token DRF Stateless",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"username\": \"admin\",\n  \"password\": \"admin123\"\n}"
+            },
+            "url": "{{baseUrl}}/api/v1/auth/token/"
+          }
+        },
+        {
+          "name": "GET Perfil Seguro Usuario (/auth/me/)",
+          "request": {
+            "method": "GET",
+            "header": [{ "key": "Authorization", "value": "Token {{apiToken}}" }],
+            "url": "{{baseUrl}}/api/v1/auth/me/"
+          }
+        }
+      ]
+    },
+    {
+      "name": "2. Activos TI (CRUD, Filtros, Paginación & HATEOAS)",
+      "item": [
+        {
+          "name": "GET Listar Activos Filtrados y Paginados (?status=activo&page=2&ordering=-created)",
+          "request": {
+            "method": "GET",
+            "url": "{{baseUrl}}/api/v1/activos/?status=activo&page=2&ordering=-created"
+          }
+        },
+        {
+          "name": "GET Buscar Activos (?search=Microservicio)",
+          "request": {
+            "method": "GET",
+            "url": "{{baseUrl}}/api/v1/activos/?search=Microservicio"
+          }
+        },
+        {
+          "name": "POST Crear Activo TI (Validación Cruzada SLA)",
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Authorization", "value": "Token {{apiToken}}" },
+              { "key": "Content-Type", "value": "application/json" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"nombre\": \"Microservicio Telemetría Edge\",\n  \"tipo\": \"MICROSERVICIO\",\n  \"status\": \"activo\",\n  \"criticidad\": \"ALTA\",\n  \"departamento\": 1,\n  \"sla_horas\": 8,\n  \"costo_mensual\": \"340.00\",\n  \"endpoint_health\": \"https://api.uncp.edu.pe/edge/health\",\n  \"descripcion\": \"Servicio desacoplado de ingesta de métricas para arquitectura de microservicios.\"\n}"
+            },
+            "url": "{{baseUrl}}/api/v1/activos/"
+          }
+        },
+        {
+          "name": "POST @action Cambiar Estado Operativo",
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Authorization", "value": "Token {{apiToken}}" },
+              { "key": "Content-Type", "value": "application/json" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"status\": \"mantenimiento\",\n  \"motivo\": \"Ventana de actualización programada\"\n}"
+            },
+            "url": "{{baseUrl}}/api/v1/activos/1/cambiar-estado/"
+          }
+        },
+        {
+          "name": "GET @action Resumen Métricas SQL",
+          "request": {
+            "method": "GET",
+            "url": "{{baseUrl}}/api/v1/activos/resumen-metricas/"
+          }
+        }
+      ]
+    },
+    {
+      "name": "3. Throttling, CORS & OpenAPI",
+      "item": [
+        {
+          "name": "GET Sonda Throttling (5/min -> 429)",
+          "request": {
+            "method": "GET",
+            "url": "{{baseUrl}}/api/v1/activos/throttle-probe/"
+          }
+        },
+        {
+          "name": "OPTIONS CORS Preflight Permitido (localhost:5173)",
+          "request": {
+            "method": "OPTIONS",
+            "header": [
+              { "key": "Origin", "value": "http://localhost:5173" },
+              { "key": "Access-Control-Request-Method", "value": "POST" },
+              { "key": "Access-Control-Request-Headers", "value": "content-type,x-csrftoken" }
+            ],
+            "url": "{{baseUrl}}/api/v1/activos/"
+          }
+        },
+        {
+          "name": "GET Health Check Microservicio (Semana 14)",
+          "request": {
+            "method": "GET",
+            "url": "{{baseUrl}}/api/v1/health/"
+          }
+        },
+        {
+          "name": "GET Esquema OpenAPI 3.0 (/api/schema/)",
+          "request": {
+            "method": "GET",
+            "url": "{{baseUrl}}/api/schema/"
+          }
+        }
+      ]
+    }
+  ]
+}

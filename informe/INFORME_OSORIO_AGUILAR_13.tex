@@ -1,0 +1,471 @@
+\documentclass[10pt,a4paper]{article}
+\usepackage{uncpfis}
+
+\begin{document}
+
+\makeheaderuncp%
+    {GUÍA PRÁCTICA INDIVIDUAL 13: DISEÑO DE APIS RESTFUL CON DJANGO REST FRAMEWORK (DRF)}%
+    {Unidad II: Desarrollo Web Fullstack -- Serialización Avanzada, ViewSets, Routers, Paginación, Filtrado, Throttling, CORS/CSRF, HATEOAS y OpenAPI 3.0}%
+    {Desarrollo de Aplicaciones Web (IS093A)}%
+    {José Pablo Osorio Mallqui (2022200839H)}%
+    {Ing. Miguel Aguilar (Facultad de Ingeniería de Sistemas -- UNCP)}
+
+\section{Introducción y Objetivos Técnicos}
+En la presente práctica de laboratorio se diseñó, implementó, aseguró y documentó una \textbf{API RESTful production-ready} denominada \textbf{TechGrid RESTful API Gateway} sobre \textbf{Django 5.2}, \textbf{Django REST Framework (DRF) 3.18} y \textbf{Python 3.12}. La plataforma gestiona el ciclo de vida de \textbf{Departamentos TI}, \textbf{Activos y Microservicios TI}, \textbf{Incidencias Operativas} y \textbf{Bitácora de Trazabilidad HTTP}, aplicando de manera estricta los seis principios arquitectónicos de REST (\textit{Stateless, Client-Server, Cacheable, Layered System, Uniform Interface} y navegación hipermedia \textit{HATEOAS}) y preparando la arquitectura para su desacoplamiento en contenedores y microservicios (Semana 14).
+
+Los objetivos técnicos desarrollados comprenden:
+\begin{enumerate}
+    \item Configurar de forma centralizada el ecosistema DRF (\texttt{djangorestframework}, \texttt{django-cors-headers}, \texttt{django-filter} y \texttt{drf-spectacular}) mediante el diccionario global \texttt{REST\_FRAMEWORK} en \texttt{config/settings.py}, evitando el acoplamiento o \textit{hardcoding} de permisos dentro de las vistas.
+    \item Implementar serialización avanzada mediante \texttt{HyperlinkedModelSerializer} y \texttt{ModelSerializer}, incorporando campos de solo lectura (\texttt{ReadOnlyField}, \texttt{SerializerMethodField}), representaciones anidadas controladas (\texttt{DepartamentoResumenSerializer}), validación en pipeline (\texttt{validate\_<campo>()} y \texttt{validate()} cross-field/relacional), sanitización activa contra XSS y exclusión explícita de atributos sensibles (\texttt{password}, \texttt{is\_staff}).
+    \item Construir controladores delgados con \texttt{ModelViewSet} y \texttt{ReadOnlyModelViewSet} registrados en \texttt{DefaultRouter}, definiendo endpoints personalizados mediante \texttt{@action(detail=True/False)} (\texttt{cambiar-estado}, \texttt{incidencias}, \texttt{resumen-metricas}, \texttt{throttle-probe}, \texttt{resolver}) sin mezclar innecesariamente \texttt{APIView}.
+    \item Habilitar filtrado diferido en base de datos (\textit{lazy evaluation}) con \texttt{DjangoFilterBackend}, \texttt{SearchFilter} y \texttt{OrderingFilter} apoyados en índices compuestos SQL (\texttt{db\_index=True} y \texttt{Meta.indexes}), junto con paginación acotada (\texttt{PageNumberPagination} y \texttt{LimitOffsetPagination}) y limitación de tasa (\texttt{AnonRateThrottle}, \texttt{UserRateThrottle} y \texttt{BurstProbeThrottle}).
+    \item Endurecer el perímetro de consumo SPA/AJAX mediante política explícita de orígenes \textbf{CORS} (\texttt{CORS\_ALLOWED\_ORIGINS}), verificación criptográfica \textbf{CSRF} (\texttt{X-CSRFToken} y \texttt{@ensure\_csrf\_cookie}) y generación automatizada de contratos \textbf{OpenAPI 3.0} (\texttt{schema.yml}, Swagger UI en \texttt{/api/docs/} y ReDoc en \texttt{/api/redoc/}).
+    \item Incorporar como valor agregado una \textbf{Consola SPA/AJAX Exploradora HATEOAS} en el punto de entrada web, una colección exportada \textbf{Postman v2.1} (\texttt{postman\_collection.json}), sonda \texttt{/api/v1/health/} y manifiestos \texttt{Dockerfile}/\texttt{docker-compose.yml} orientados a microservicios.
+\end{enumerate}
+
+\section{Arquitectura RESTful: Pipeline de Serialización, Middleware CORS y HATEOAS}
+A diferencia de los enfoques RPC o SOAP acoplados a procedimientos remotos, la arquitectura implementada expone recursos uniformes direccionables por URI e inspectables mediante metadatos hipermedia.
+
+\begin{figure}[H]
+\centering
+\small
+\begin{tikzpicture}[
+    node distance=0.95cm and 1.15cm,
+    cli/.style={rectangle, draw=uncpnavy, fill=uncplight, rounded corners=3pt, thick, align=center, inner sep=6pt, font=\footnotesize, minimum width=3.3cm},
+    mw/.style={rectangle, draw=uncpgold, fill=white, rounded corners=3pt, thick, align=center, inner sep=6pt, font=\footnotesize, minimum width=3.5cm},
+    drf/.style={rectangle, draw=uncpnavy, fill=white, rounded corners=3pt, thick, align=center, inner sep=6pt, font=\footnotesize, minimum width=3.4cm},
+    db/.style={cylinder, draw=uncpgreen, fill=uncplight, shape border rotate=90, aspect=0.25, thick, align=center, inner sep=5pt, font=\footnotesize, minimum width=2.8cm},
+    arr/.style={-{Stealth[scale=0.9]}, thick, color=uncpnavy}
+]
+    \node[cli] (spa) {\textbf{\color{uncpnavy}Cliente SPA / Postman}\\Header \texttt{Origin} + \texttt{X-CSRFToken}\\o \texttt{Authorization: Token}};
+    \node[mw, right=of spa] (cors) {\textbf{\color{uncpgold}CorsMiddleware + CSRF}\\Preflight \texttt{OPTIONS} y\\validación de origen};
+    \node[drf, right=of cors] (router) {\textbf{\color{uncpnavy}DefaultRouter + ViewSet}\\\texttt{ModelViewSet} + \texttt{@action}\\y \texttt{BurstProbeThrottle}};
+    \node[drf, below=of router] (ser) {\textbf{\color{uncpnavy}Pipeline Serializador}\\\texttt{to\_internal\_value()} $\to$\\\texttt{validate()} $\to$ \texttt{.save()}};
+    \node[mw, left=of ser] (filt) {\textbf{\color{uncpgold}Lazy QuerySet + Paginación}\\\texttt{DjangoFilterBackend} +\\Índices DB + \texttt{select\_related}};
+    \node[db, left=of filt] (sql) {\textbf{\color{uncpgreen}SQLite / ORM}\\Tablas Indexadas\\y Bitácora HTTP};
+
+    \draw[arr] (spa) -- (cors);
+    \draw[arr] (cors) -- (router);
+    \draw[arr] (router) -- (ser);
+    \draw[arr] (ser) -- node[above, font=\tiny] {QuerySet} (filt);
+    \draw[arr] (filt) -- (sql);
+\end{tikzpicture}
+\vspace{-0.2cm}
+\caption{Flujo integral de petición RESTful: CORS/CSRF, Router, Throttling, Serialización y QuerySet diferido.}
+\label{fig:arquitectura_drf}
+\end{figure}
+
+\begin{table}[H]
+\centering
+\small
+\begin{tabularx}{\textwidth}{p{3.0cm} X X}
+\toprule
+\textbf{\color{uncpnavy}Principio REST} & \textbf{\color{uncpnavy}Implementación en TechGrid API} & \textbf{\color{uncpnavy}Evidencia Verificable} \\
+\midrule
+\textbf{Stateless} & Autenticación por \texttt{TokenAuthentication} en cada cabecera \texttt{Authorization} sin depender de estado en memoria del servidor. & Endpoint \texttt{/api/v1/auth/token/} y tests con \texttt{APIClient.credentials()}. \\
+\addlinespace
+\textbf{Uniform Interface} & Mapeo canónico HTTP (\texttt{GET}, \texttt{POST}, \texttt{PUT}, \texttt{PATCH}, \texttt{DELETE}) generado por \texttt{DefaultRouter}. & Esquema \texttt{schema.yml} y Swagger UI en \texttt{/api/docs/}. \\
+\addlinespace
+\textbf{HATEOAS} & Enlaces hipervinculados absolutos en \texttt{url}, \texttt{departamento\_url} y diccionario \texttt{\_links} (\texttt{self}, \texttt{collection}, \texttt{incidencias}). & \texttt{ActivoTIHyperlinkedSerializer} y explorador SPA interactivo. \\
+\addlinespace
+\textbf{Layered System} & Capas desacopladas de seguridad (\texttt{CorsMiddleware}), telemetría (\texttt{ApiTelemetryMiddleware}) y sonda \texttt{/health/}. & Cabecera \texttt{X-Response-Time-Ms} y preparación Docker. \\
+\bottomrule
+\end{tabularx}
+\caption{Correspondencia entre los principios arquitectónicos REST y los artefactos implementados.}
+\label{tab:principios_rest}
+\end{table}
+
+\newpage
+
+\section{Fase 1: Setup y Configuración Centralizada DRF}
+En \texttt{config/settings.py} se integraron las aplicaciones \texttt{rest\_framework}, \texttt{rest\_framework.authtoken}, \texttt{django\_filters}, \texttt{corsheaders} y \texttt{drf\_spectacular}. Siguiendo la restricción técnica de la guía, la política de permisos (\texttt{IsAuthenticatedOrReadOnly}), la paginación estándar (\texttt{PAGE\_SIZE = 5}), los motores de filtrado, las cuotas de \textit{throttling} (\texttt{60/min} anónimos, \texttt{240/min} autenticados, \texttt{5/min} para sonda crítica) y el generador de esquema OpenAPI se definieron globalmente en \texttt{REST\_FRAMEWORK}.
+
+\begin{figure}[H]
+\centering
+\begin{minipage}[c]{0.73\textwidth}
+    \centering
+    \uncpimagebox{assets/codesnap_settings_drf.png}
+\end{minipage}\hfill
+\begin{minipage}[c]{0.24\textwidth}
+    \raggedright
+    \textbf{\color{uncpnavy}\small Configuración Global}\\[4pt]
+    \footnotesize
+    \color{uncpdark}
+    Extracto de \texttt{config/settings.py}. Se observa el bloque centralizado \texttt{REST\_FRAMEWORK}, la lista explícita \texttt{CORS\_ALLOWED\_ORIGINS} (sin comodín \texttt{*}) y los parámetros de cookies seguras \texttt{HttpOnly} y \texttt{SameSite=Lax}.
+\end{minipage}
+\vspace{-0.2cm}
+\caption{Configuración global DRF, CORS restringido y política de cookies CSRF/Sesión.}
+\label{fig:codesnap_settings}
+\end{figure}
+
+\begin{figure}[H]
+\centering
+\begin{minipage}[c]{0.73\textwidth}
+    \centering
+    \uncpimagebox{assets/term_setup_openapi.png}
+\end{minipage}\hfill
+\begin{minipage}[c]{0.24\textwidth}
+    \raggedright
+    \textbf{\color{uncpnavy}\small Verificación Inicial}\\[4pt]
+    \footnotesize
+    \color{uncpdark}
+    Ejecución real de \texttt{manage.py check} (0 errores), validación formal de contrato OpenAPI 3.0 con \texttt{manage.py spectacular --validate} (0 advertencias) y poblado inicial de 4 departamentos, 12 activos TI y 8 incidencias.
+\end{minipage}
+\vspace{-0.2cm}
+\caption{Validación de configuración del sistema, generación de \texttt{schema.yml} y datos iniciales.}
+\label{fig:term_setup}
+\end{figure}
+
+\newpage
+
+\section{Fase 2: Serialización Avanzada, Validación e HATEOAS}
+El archivo \texttt{servicios\_api/serializers.py} implementa la capa de transformación y validación de datos sin delegar reglas de negocio a las vistas. Se declararon explícitamente las tuplas \texttt{fields} en todos los serializadores, protegiendo campos internos del modelo \texttt{User} mediante \texttt{UsuarioSeguroSerializer} (excluyendo \texttt{password}, \texttt{is\_staff} e \texttt{is\_superuser}).
+
+En \texttt{ActivoTIHyperlinkedSerializer} se combinaron:
+\begin{itemize}
+    \item \textbf{Hipervínculos HATEOAS:} \texttt{HyperlinkedIdentityField} (\texttt{url}), \texttt{HyperlinkedRelatedField} (\texttt{departamento\_url}) con \texttt{view\_name='servicios\_api:departamento-detail'} explícito y método \texttt{get\_\_links()} que expone las relaciones navegables \texttt{self}, \texttt{collection}, \texttt{departamento}, \texttt{incidencias} y \texttt{cambiar\_estado}.
+    \item \textbf{Campos Read-Only y Calculados:} \texttt{ReadOnlyField} para \texttt{codigo\_activo}, \texttt{departamento\_nombre} y \texttt{responsable\_\-username}; \texttt{SerializerMethodField} tipados para \texttt{nivel\_riesgo} e \texttt{incidencias\_activas\_count}.
+    \item \textbf{Validación Cruzada y Sanitización:} \texttt{sanitizar\_texto()} escapa fragmentos HTML/XSS (\texttt{html.escape()}); \texttt{validate()} exige un máximo de 12 horas de SLA para activos con criticidad \texttt{CRITICA}, exige \texttt{endpoint\_health} en microservicios activos e impide asociar activos a departamentos inactivos. Asimismo, \texttt{IncidenciaAPISerializer} impide abrir tickets sobre activos en estado \texttt{inactivo}.
+\end{itemize}
+
+\begin{figure}[H]
+\centering
+\begin{minipage}[c]{0.73\textwidth}
+    \centering
+    \uncpimagebox{assets/codesnap_serializers_hateoas.png}
+\end{minipage}\hfill
+\begin{minipage}[c]{0.24\textwidth}
+    \raggedright
+    \textbf{\color{uncpnavy}\small Serializador HATEOAS}\\[4pt]
+    \footnotesize
+    \color{uncpdark}
+    Implementación de \texttt{ActivoTIHyperlinkedSerializer}. Destaca la resolución de \texttt{view\_name} con namespace, la representación anidada \texttt{departamento\_detalle} y las reglas cruzadas en \texttt{validate()}.
+\end{minipage}
+\vspace{-0.2cm}
+\caption{Serializador hipervinculado con validación cruzada, sanitización y enlaces HATEOAS.}
+\label{fig:codesnap_serializers}
+\end{figure}
+
+\begin{figure}[H]
+\centering
+\begin{minipage}[c]{0.73\textwidth}
+    \centering
+    \uncpimagebox{assets/interfaz_validacion_400.png}
+\end{minipage}\hfill
+\begin{minipage}[c]{0.24\textwidth}
+    \raggedright
+    \textbf{\color{uncpnavy}\small Rechazo HTTP 400}\\[4pt]
+    \footnotesize
+    \color{uncpdark}
+    Prueba interactiva desde la consola SPA enviando un activo \texttt{CRITICA} con \texttt{sla\_horas = 36} vía \texttt{POST} con \texttt{X-CSRFToken}. El serializador rechaza la carga útil con estado \texttt{HTTP 400 Bad Request} y detalle estructurado.
+\end{minipage}
+\vspace{-0.2cm}
+\caption{Validación cruzada SLA ejecutada desde la consola SPA con respuesta HTTP 400.}
+\label{fig:interfaz_400}
+\end{figure}
+
+\newpage
+
+\section{Fase 3: ViewSets, Routers y Endpoints Custom (\texttt{@action})}
+Para mantener controladores delgados y uniformes sin mezclar \texttt{APIView}, todos los recursos REST fueron modelados mediante \texttt{ModelViewSet} (\texttt{DepartamentoViewSet}, \texttt{ActivoTIViewSet}, \texttt{IncidenciaAPIViewSet}) y \texttt{ReadOnlyModelViewSet} (\texttt{BitacoraAccesoViewSet}), registrados automáticamente con \texttt{DefaultRouter} bajo el prefijo \texttt{/api/v1/}. Cada \texttt{get\_queryset()} incorpora \texttt{select\_related()} y anotaciones ORM (\texttt{Count(..., filter=Q(...))}) eliminando consultas $N+1$.
+
+\begin{figure}[H]
+\centering
+\begin{minipage}[c]{0.73\textwidth}
+    \centering
+    \uncpimagebox{assets/codesnap_viewsets_actions.png}
+\end{minipage}\hfill
+\begin{minipage}[c]{0.24\textwidth}
+    \raggedright
+    \textbf{\color{uncpnavy}\small ViewSet y Acciones}\\[4pt]
+    \footnotesize
+    \color{uncpdark}
+    \texttt{ActivoTIViewSet} en \texttt{servicios\_api/views.py}. Hereda la configuración global y define acciones \texttt{@action(detail=True/False)} decoradas con \texttt{@extend\_schema} para OpenAPI 3.0.
+\end{minipage}
+\vspace{-0.2cm}
+\caption{ModelViewSet con consultas ORM optimizadas y endpoints \texttt{@action} personalizados.}
+\label{fig:codesnap_viewsets}
+\end{figure}
+
+\begin{figure}[H]
+\centering
+\begin{minipage}[c]{0.73\textwidth}
+    \centering
+    \uncpimagebox{assets/codesnap_router_throttles.png}
+\end{minipage}\hfill
+\begin{minipage}[c]{0.24\textwidth}
+    \raggedright
+    \textbf{\color{uncpnavy}\small Router y Throttles}\\[4pt]
+    \footnotesize
+    \color{uncpdark}
+    Registro de los 6 ViewSets en \texttt{DefaultRouter} dentro de \texttt{servicios\_api/urls.py} con \texttt{app\_name = 'servicios\_api'}, acompañado de las clases de limitación en \texttt{throttles.py}.
+\end{minipage}
+\vspace{-0.2cm}
+\caption{Enrutamiento automático mediante DefaultRouter y definición de Throttles.}
+\label{fig:codesnap_router}
+\end{figure}
+
+\newpage
+
+\section{Fase 4: Filtrado Lazy, Paginación, Índices DB y Throttling}
+Las consultas sobre colecciones extensas se protegieron mediante tres mecanismos complementarios:
+\begin{enumerate}
+    \item \textbf{Filtrado SQL con Índices:} \texttt{ActivoTIFilter} y \texttt{IncidenciaAPIFilter} operan directamente sobre QuerySets evaluados de forma diferida (\textit{lazy evaluation}) aprovechando los índices declarados en \texttt{Meta.indexes} (\texttt{['status', '-created']}, \texttt{['departamento', 'criticidad']}). Nunca se utiliza \texttt{list()} ni filtrado en memoria.
+    \item \textbf{Paginación Estándar y Desplazamiento:} \texttt{StandardResultsSetPagination} (\texttt{page\_size = 5}, \texttt{max\_page\_size = 50}) en catálogos principales y \texttt{LimitOffsetAuditPagination} en \texttt{/api/v1/bitacora/}.
+    \item \textbf{Protección contra Abuso (Throttling):} Además de las cuotas globales (\texttt{AnonRateThrottle} y \texttt{UserRateThrottle}), el endpoint \texttt{/api/v1/activos/throttle-probe/} aplica \texttt{BurstProbeThrottle} (\texttt{5/min}), bloqueando la sexta petición en el minuto con \texttt{HTTP 429 Too Many Requests}.
+\end{enumerate}
+
+\begin{figure}[H]
+\centering
+\begin{minipage}[c]{0.73\textwidth}
+    \centering
+    \uncpimagebox{assets/interfaz_drf_browsable.png}
+\end{minipage}\hfill
+\begin{minipage}[c]{0.24\textwidth}
+    \raggedright
+    \textbf{\color{uncpnavy}\small DRF Browsable API}\\[4pt]
+    \footnotesize
+    \color{uncpdark}
+    Consulta real a\\
+    \texttt{/api/v1/activos/}\\
+    \texttt{?status=activo\&page=2}\\
+    \texttt{\&ordering=-created}.\\
+    Se visualizan los metadatos de paginación (\texttt{count}, \texttt{previous}), objeto anidado e hipervínculos HATEOAS.
+\end{minipage}
+\vspace{-0.2cm}
+\caption{Respuesta DRF Browsable API aplicando filtrado, ordenamiento y paginación en página 2.}
+\label{fig:interfaz_browsable}
+\end{figure}
+
+\begin{figure}[H]
+\centering
+\begin{minipage}[c]{0.73\textwidth}
+    \centering
+    \uncpimagebox{assets/interfaz_paginacion_hateoas.png}
+\end{minipage}\hfill
+\begin{minipage}[c]{0.24\textwidth}
+    \raggedright
+    \textbf{\color{uncpnavy}\small Paginación y HATEOAS}\\[4pt]
+    \footnotesize
+    \color{uncpdark}
+    Navegación interactiva hacia la página 2 tras autenticación SPA con \texttt{X-CSRFToken}, mostrando enlaces \texttt{self}, \texttt{departamento} e \texttt{incidencias}.
+\end{minipage}
+\vspace{-0.2cm}
+\caption{Paginación en página 2 y navegación hipervinculada HATEOAS desde la consola SPA.}
+\label{fig:interfaz_pag_hateoas}
+\end{figure}
+
+\begin{figure}[H]
+\centering
+\begin{minipage}[c]{0.73\textwidth}
+    \centering
+    \uncpimagebox{assets/interfaz_throttling_429.png}
+\end{minipage}\hfill
+\begin{minipage}[c]{0.24\textwidth}
+    \raggedright
+    \textbf{\color{uncpnavy}\small Bloqueo HTTP 429}\\[4pt]
+    \footnotesize
+    \color{uncpdark}
+    Demostración desde la consola SPA al pulsar \textit{Probar Throttling (5/min)}. La sexta petición consecutiva es interceptada por \texttt{BurstProbeThrottle} retornando \texttt{HTTP 429} y tiempo de espera en segundos.
+\end{minipage}
+\vspace{-0.2cm}
+\caption{Activación de límite de tasa (\texttt{HTTP 429 Too Many Requests}) en el navegador.}
+\label{fig:interfaz_429}
+\end{figure}
+
+\newpage
+
+\section{Fase 5: CORS, CSRF, Documentación OpenAPI 3.0 y Microservicios}
+El aseguramiento perimetral e interoperabilidad cliente-servidor se validó mediante sondas HTTP en vivo, consola SPA con envío explícito de cabecera \texttt{X-CSRFToken} y generación automatizada de documentación OpenAPI 3.0:
+
+\begin{figure}[H]
+\centering
+\begin{minipage}[c]{0.73\textwidth}
+    \centering
+    \uncpimagebox{assets/term_http_cors_throttle.png}
+\end{minipage}\hfill
+\begin{minipage}[c]{0.24\textwidth}
+    \raggedright
+    \textbf{\color{uncpnavy}\small Sonda HTTP y CORS}\\[4pt]
+    \footnotesize
+    \color{uncpdark}
+    Pruebas reales contra el servidor Django: respuesta \texttt{200 OK} con \texttt{X-Response-Time-Ms}, preflight \texttt{OPTIONS} retornando \texttt{Access-Control-Allow-Origin: http://localhost:5173} y secuencia \texttt{1..6} disparando \texttt{HTTP 429}.
+\end{minipage}
+\vspace{-0.2cm}
+\caption{Verificación en terminal de query parameters, cabeceras CORS preflight y throttling.}
+\label{fig:term_http}
+\end{figure}
+
+\begin{figure}[H]
+\centering
+\begin{minipage}[c]{0.73\textwidth}
+    \centering
+    \uncpimagebox{assets/interfaz_swagger_ui.png}
+\end{minipage}\hfill
+\begin{minipage}[c]{0.24\textwidth}
+    \raggedright
+    \textbf{\color{uncpnavy}\small Swagger UI (/api/docs/)}\\[4pt]
+    \footnotesize
+    \color{uncpdark}
+    Documentación interactiva OpenAPI 3.0 generada automáticamente con \texttt{drf-spectacular}, agrupando endpoints por etiquetas funcionales y habilitando pruebas directas con botón \textit{Authorize}.
+\end{minipage}
+\vspace{-0.2cm}
+\caption{Interfaz interactiva Swagger UI servida en \texttt{/api/docs/} desde \texttt{schema.yml}.}
+\label{fig:interfaz_swagger}
+\end{figure}
+
+\begin{figure}[H]
+\centering
+\begin{minipage}[c]{0.73\textwidth}
+    \centering
+    \uncpimagebox{assets/interfaz_redoc_ui.png}
+\end{minipage}\hfill
+\begin{minipage}[c]{0.24\textwidth}
+    \raggedright
+    \textbf{\color{uncpnavy}\small ReDoc (/api/redoc/)}\\[4pt]
+    \footnotesize
+    \color{uncpdark}
+    Vista de referencia técnica ReDoc consumiendo el esquema \texttt{/api/schema/}, mostrando parámetros de consulta, esquemas de autenticación y ejemplos de respuesta JSON.
+\end{minipage}
+\vspace{-0.2cm}
+\caption{Documentación técnica ReDoc generada automáticamente para clientes externos.}
+\label{fig:interfaz_redoc}
+\end{figure}
+
+\newpage
+
+\section{Valor Agregado: Consola SPA HATEOAS, Sonda Microservicios y Pruebas TDD}
+Superando los requerimientos base de la guía, se desarrollaron tres artefactos de valor agregado orientados a la experiencia de desarrollador (\textit{DX}) y a la transición hacia la Semana 14 (Microservicios y Contenedores):
+\begin{enumerate}
+    \item \textbf{Consola SPA/AJAX Exploradora HATEOAS (\texttt{/}):} Interfaz institucional web que autentica sesiones SPA enviando la cabecera \texttt{X-CSRFToken}, navega enlaces \texttt{\_links} dinámicamente e inspecciona cabeceras HTTP de latencia y seguridad en tiempo real.
+    \item \textbf{Preparación de Contenedores y Sonda de Salud (\texttt{/api/v1/health/}):} Inclusión de \texttt{Dockerfile}, \texttt{docker-compose.yml},\\ \texttt{.env.example}, colección \texttt{postman\_collection.json} y endpoint de salud verificando la conectividad SQLite en milisegundos.
+    \item \textbf{Batería de 11 Pruebas Automatizadas (\texttt{tests.py}):} Cobertura completa sobre HATEOAS, no exposición de campos sensibles, sanitización XSS, validación cruzada/anidada, paginación y filtrado, acciones \texttt{@action}, \texttt{BurstProbeThrottle} (\texttt{429}), preflight CORS y protección CSRF obligatoria.
+\end{enumerate}
+
+\begin{figure}[H]
+\centering
+\begin{minipage}[c]{0.73\textwidth}
+    \centering
+    \uncpimagebox{assets/interfaz_consola_spa.png}
+\end{minipage}\hfill
+\begin{minipage}[c]{0.24\textwidth}
+    \raggedright
+    \textbf{\color{uncpnavy}\small Consola SPA/AJAX}\\[4pt]
+    \footnotesize
+    \color{uncpdark}
+    Cliente web integrado en tema claro institucional UNCP FIS. Ejecuta consultas AJAX con filtros combinados, muestra enlaces HATEOAS clicables y supervisa latencia y token CSRF.
+\end{minipage}
+\vspace{-0.2cm}
+\caption{Consola interactiva SPA/AJAX para exploración RESTful, HATEOAS y diagnóstico CSRF.}
+\label{fig:interfaz_spa}
+\end{figure}
+
+\begin{figure}[H]
+\centering
+\begin{minipage}[c]{0.73\textwidth}
+    \centering
+    \uncpimagebox{assets/interfaz_health_microservicio.png}
+\end{minipage}\hfill
+\begin{minipage}[c]{0.24\textwidth}
+    \raggedright
+    \textbf{\color{uncpnavy}\small Health Check Probe}\\[4pt]
+    \footnotesize
+    \color{uncpdark}
+    Endpoint \texttt{/api/v1/health/} listo para \texttt{HEALTHCHECK} de Docker y balanceadores de carga (Semana 14), reportando latencia de base de datos y capacidades activas del servicio.
+\end{minipage}
+\vspace{-0.2cm}
+\caption{Sonda de disponibilidad y preparación para contenedores en \texttt{/api/v1/health/}.}
+\label{fig:interfaz_health}
+\end{figure}
+
+\begin{figure}[H]
+\centering
+\begin{minipage}[c]{0.73\textwidth}
+    \centering
+    \uncpimagebox{assets/term_tests_unitarios.png}
+\end{minipage}\hfill
+\begin{minipage}[c]{0.24\textwidth}
+    \raggedright
+    \textbf{\color{uncpnavy}\small Suite de Pruebas TDD}\\[4pt]
+    \footnotesize
+    \color{uncpdark}
+    Ejecución completa de \texttt{python manage.py test servicios\_api -v 2}. Las 11 pruebas unitarias y de integración finalizaron en estado \texttt{OK} (5.610s) sin fallos ni advertencias.
+\end{minipage}
+\vspace{-0.2cm}
+\caption{Resultados de la batería de pruebas automatizadas DRF.}
+\label{fig:term_tests}
+\end{figure}
+
+\begin{figure}[H]
+\centering
+\begin{minipage}[c]{0.73\textwidth}
+    \centering
+    \uncpimagebox{assets/interfaz_django_admin.png}
+\end{minipage}\hfill
+\begin{minipage}[c]{0.24\textwidth}
+    \raggedright
+    \textbf{\color{uncpnavy}\small Consola Django Admin}\\[4pt]
+    \footnotesize
+    \color{uncpdark}
+    Panel administrativo de \texttt{ActivoTI} con badges de estado y criticidad, búsqueda indexada, filtros laterales, acciones masivas y optimización \texttt{select\_related()}.
+\end{minipage}
+\vspace{-0.2cm}
+\caption{Panel administrativo Django Admin integrado para gestión de Activos TI.}
+\label{fig:interfaz_admin}
+\end{figure}
+
+\newpage
+
+\section{Registro de Uso Controlado de IA (Política del 80\% Manual)}
+En estricto cumplimiento de la regla de laboratorio de la Guía Práctica 13, más del 80\% de la lógica de serializadores, filtros, throttling y routers fue redactada manualmente, documentando mediante comentarios \texttt{\# IA:} las consultas técnicas específicas sobre resolución de hipervínculos, orden de middleware CORS, manejo CSRF en SPA y configuración OpenAPI:
+
+\begin{table}[H]
+\centering
+\small
+\begin{tabularx}{\textwidth}{p{3.9cm} p{4.6cm} X}
+\toprule
+\textbf{\color{uncpnavy}Archivo / Componente} & \textbf{\color{uncpnavy}Problema Técnico Consultado} & \textbf{\color{uncpnavy}Solución Manual Aplicada en Código} \\
+\midrule
+\texttt{servicios\_api/}\newline\texttt{serializers.py} & \texttt{HyperlinkedModelSerializer} arroja error o valor nulo cuando \texttt{urls.py} declara \texttt{app\_name}. & Declaración explícita de \texttt{view\_name='servicios\_api:}\newline\texttt{<recurso>-detail'} en \texttt{HyperlinkedIdentityField} y propagación de \texttt{context=\{'request': request\}}. \\
+\addlinespace
+\texttt{config/settings.py} & Solicitudes preflight \texttt{OPTIONS} rechazadas antes de inyectar cabeceras CORS. & Posicionamiento de \texttt{CorsMiddleware} inmediatamente después de \texttt{SecurityMiddleware} y antes de \texttt{CommonMiddleware}, junto a \texttt{CORS\_ALLOWED\_ORIGINS} explícito. \\
+\addlinespace
+\texttt{servicios\_api/}\newline\texttt{views.py} & Error \texttt{403 Forbidden} en llamadas \texttt{POST} desde cliente SPA/AJAX desacoplado. & Exposición de endpoint público \texttt{/api/v1/auth/csrf/} con \texttt{@ensure\_csrf\_cookie} y verificación estricta de \texttt{X-CSRFToken} mediante \texttt{CsrfViewMiddleware}. \\
+\addlinespace
+\texttt{config/urls.py} y \texttt{settings.py} & Colisión de nombres \textit{enum} y error ESM de ReDoc \texttt{@latest} en \texttt{drf-spectacular}. & Definición de \texttt{ENUM\_NAME\_OVERRIDES} en \texttt{SPECTACULAR\_SETTINGS} (0 advertencias en \texttt{spectacular --validate}) y fijación de \texttt{REDOC\_DIST} a \texttt{redoc@2.2.0}. \\
+\bottomrule
+\end{tabularx}
+\caption{Trazabilidad de asistencia de IA documentada con marcadores \texttt{\# IA:} en el código fuente.}
+\label{tab:registro_ia}
+\end{table}
+
+\section{Conclusiones y Recomendaciones hacia Microservicios}
+\begin{enumerate}
+    \item \textbf{Separación Estricta de Responsabilidades en DRF:} Centralizar permisos, paginación, filtros y cuotas en \texttt{REST\_FRAMEWORK} mantiene los \texttt{ModelViewSet} delgados y predecibles, evitando reglas duplicadas o dispersas en vistas individuales.
+    \item \textbf{Integridad y Seguridad por Contrato en Serializadores:} La validación de reglas cruzadas (\textit{SLA} vs criticidad), la validación relacional (\texttt{departamento.activo}, \texttt{activo.status}) y la declaración explícita de campos en \texttt{Meta.fields} garantizan que ninguna credencial o atributo privilegiado se filtre por la API.
+    \item \textbf{Rendimiento Basado en Evaluación Diferida e Índices SQL:} Combinar \texttt{DjangoFilterBackend} con índices compuestos en modelos y \texttt{select\_related()}/\texttt{annotate()} previene consultas $N+1$ y evita cargar colecciones completas en memoria RAM.
+    \item \textbf{Interoperabilidad Segura SPA/AJAX:} El uso conjunto de \texttt{CORS\_ALLOWED\_ORIGINS} restringido, protección CSRF activa para sesiones web y \texttt{TokenAuthentication} stateless permite atender de forma segura tanto a clientes SPA modernos (React/Vue) como a consumidores externos o microservicios.
+    \item \textbf{Contrato OpenAPI 3.0 y Contenedorización (Semana 14):} La validación automática de \texttt{schema.yml} con cero advertencias, la colección \texttt{postman\_collection.json}, el endpoint \texttt{/api/v1/health/} y los manifiestos Docker dejan el servicio listo para evolucionar hacia una arquitectura distribuida de microservicios en la siguiente semana.
+\end{enumerate}
+
+\newpage
+
+\section*{Repositorio y Evidencias}
+\begin{uncpnote}{Enlace de Entrega en GitHub y Rutas del Proyecto}
+\textbf{Repositorio GitHub Oficial:} \url{https://github.com/UNCP-PROJECTS/aguilar-13.git}\\
+\textbf{Proyecto Django/DRF:} \texttt{proyecto/} (incluye \texttt{schema.yml}, \texttt{postman\_collection.json}, \texttt{Dockerfile} y \texttt{docker-compose.yml})\\
+\textbf{Documentación Interactiva:} \texttt{/api/docs/} (Swagger UI), \texttt{/api/redoc/} (ReDoc) y \texttt{/} (Consola SPA HATEOAS)
+\end{uncpnote}
+
+\begin{thebibliography}{9}
+    \bibitem{drf_docs}
+    Encode OSS Ltd. (2026). \textit{Django REST Framework 3.18 Documentation: Serializers, ViewSets, Routers and Throttling}. Recuperado de \url{https://www.django-rest-framework.org/}
+    \bibitem{cors_headers}
+    Johnson, A. (2026). \textit{django-cors-headers Documentation}. Recuperado de \url{https://django-cors-headers.readthedocs.io/}
+    \bibitem{drf_spectacular}
+    Bauer, T. (2026). \textit{drf-spectacular: Sane and flexible OpenAPI 3 schema generation for Django REST framework}. Recuperado de \url{https://drf-spectacular.readthedocs.io/}
+    \bibitem{fielding_rest}
+    Fielding, R. T. (2000). \textit{Architectural Styles and the Design of Network-based Software Architectures} (Tesis doctoral, University of California, Irvine).
+\end{thebibliography}
+
+\end{document}
